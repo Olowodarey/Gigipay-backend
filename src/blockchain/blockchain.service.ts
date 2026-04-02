@@ -27,7 +27,8 @@ export const CONTRACT_ADDRESSES: Record<number, Address> = {
 @Injectable()
 export class BlockchainService implements OnModuleInit {
   private readonly logger = new Logger(BlockchainService.name);
-  private publicClients: Map<number, PublicClient> = new Map();
+  private publicClients: Map<number, ReturnType<typeof createPublicClient>> =
+    new Map();
 
   constructor(private config: ConfigService) {}
 
@@ -52,7 +53,7 @@ export class BlockchainService implements OnModuleInit {
     this.logger.log('Blockchain clients initialized for Celo and Base');
   }
 
-  getPublicClient(chainId: number): PublicClient {
+  getPublicClient(chainId: number) {
     const client = this.publicClients.get(chainId);
     if (!client) throw new Error(`No client for chain ${chainId}`);
     return client;

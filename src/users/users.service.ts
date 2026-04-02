@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { UpsertUserDto } from './dto/user.dto';
 
 // In-memory store — replace with DB (Prisma/TypeORM) later
-interface User {
+export interface User {
   address: string;
   email?: string;
   phone?: string;
