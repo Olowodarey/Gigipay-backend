@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UpsertUserDto } from './dto/user.dto';
 
-// In-memory store — replace with DB (Prisma/TypeORM) later
 export interface User {
   address: string;
   email?: string;
   phone?: string;
   displayName?: string;
+  isMiniPay: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,10 +25,27 @@ export class UsersService {
       email: dto.email ?? existing?.email,
       phone: dto.phone ?? existing?.phone,
       displayName: dto.displayName ?? existing?.displayName,
+      isMiniPay: dto.isMiniPay ?? existing?.isMiniPay ?? false,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
 
+    users.set(key, user);
+    return user;
+  }
+
+  findOrCreate(address: string, isMiniPay = false): User {
+    const key = address.toLowerCase();
+    const existing = users.get(key);
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const user: User = {
+      address: key,
+      isMiniPay,
+      createdAt: now,
+      updatedAt: now,
+    };
     users.set(key, user);
     return user;
   }

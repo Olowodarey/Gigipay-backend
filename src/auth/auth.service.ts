@@ -2,18 +2,23 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { verifyMessage } from 'viem';
 import type { Address } from 'viem';
+import { UsersService } from '../users/users.service';
 
-// In-memory nonce store (replace with Redis/DB in production)
 const nonceStore = new Map<string, { nonce: string; expiresAt: number }>();
 
 @Injectable()
 export class AuthService {
-  constructor(private jwt: JwtService) {}
+  constructor(
+    private jwt: JwtService,
+    private users: UsersService,
+  ) {}
 
   generateNonce(address: string): string {
     const nonce = Math.random().toString(36).substring(2, 15);
-    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-    nonceStore.set(address.toLowerCase(), { nonce, expiresAt });
+    nonceStore.set(address.toLowerCase(), {
+      nonce,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    });
     return nonce;
   }
 
@@ -21,7 +26,11 @@ export class AuthService {
     address: string,
     signature: string,
     message: string,
-  ): Promise<string> {
+    isMiniPay = false,
+  ): Promise<{
+    token: string;
+    user: ReturnType<UsersService['findOrCreate']>;
+  }> {
     const stored = nonceStore.get(address.toLowerCase());
 
     if (!stored)
@@ -42,17 +51,16 @@ export class AuthService {
 
     if (!valid) throw new UnauthorizedException('Invalid signature.');
 
-    // Clear nonce after use
     nonceStore.delete(address.toLowerCase());
+
+    // Auto-create or load user profile
+    const user = this.users.findOrCreate(address, isMiniPay);
 
     const token = this.jwt.sign({
       sub: address.toLowerCase(),
       address: address.toLowerCase(),
     });
-    return token;
-  }
 
-  validateToken(token: string) {
-    return this.jwt.verify(token);
+    return { token, user };
   }
 }

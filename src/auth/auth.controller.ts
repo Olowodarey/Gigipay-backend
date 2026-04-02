@@ -19,13 +19,14 @@ export class AuthController {
   }
 
   @Post('verify')
-  @ApiOperation({ summary: 'Verify wallet signature and get JWT token' })
+  @ApiOperation({ summary: 'Verify wallet signature, get JWT + user profile' })
   async verify(@Body() dto: VerifySignatureDto) {
-    const token = await this.service.verifySignature(
+    const { token, user } = await this.service.verifySignature(
       dto.address,
       dto.signature,
       dto.message,
+      dto.isMiniPay ?? false,
     );
-    return { token, address: dto.address.toLowerCase() };
+    return { token, user };
   }
 }
