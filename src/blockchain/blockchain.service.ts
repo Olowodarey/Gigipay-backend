@@ -1,23 +1,8 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  parseUnits,
-  type Address,
-  type PublicClient,
-  type WalletClient,
-  type Chain,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { createPublicClient, http, type Address } from 'viem';
 import { celo, base } from 'viem/chains';
 import { GIGIPAY_ABI } from './abi';
-
-export const SUPPORTED_CHAINS = {
-  [celo.id]: celo,
-  [base.id]: base,
-} as const;
 
 export const CONTRACT_ADDRESSES: Record<number, Address> = {
   [celo.id]: '0x7B7750Fb5f0ce9C908fCc0674F8B35782F6d40B3',
@@ -27,13 +12,12 @@ export const CONTRACT_ADDRESSES: Record<number, Address> = {
 @Injectable()
 export class BlockchainService implements OnModuleInit {
   private readonly logger = new Logger(BlockchainService.name);
-  private publicClients: Map<number, ReturnType<typeof createPublicClient>> =
-    new Map();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private publicClients = new Map<number, any>();
 
   constructor(private config: ConfigService) {}
 
   onModuleInit() {
-    // Initialize public clients for each supported chain
     this.publicClients.set(
       celo.id,
       createPublicClient({
@@ -41,7 +25,6 @@ export class BlockchainService implements OnModuleInit {
         transport: http(this.config.get('celo.rpcUrl')),
       }),
     );
-
     this.publicClients.set(
       base.id,
       createPublicClient({
@@ -49,7 +32,6 @@ export class BlockchainService implements OnModuleInit {
         transport: http(this.config.get('base.rpcUrl')),
       }),
     );
-
     this.logger.log('Blockchain clients initialized for Celo and Base');
   }
 
@@ -81,26 +63,23 @@ export class BlockchainService implements OnModuleInit {
     return {
       sender: data[0] as Address,
       token: data[1] as Address,
-      amount: data[2].toString(),
-      claimCodeHash: data[3],
-      expiresAt: data[4].toString(),
-      claimed: data[5],
-      refunded: data[6],
-      voucherName: data[7],
+      amount: (data[2] as bigint).toString(),
+      claimCodeHash: data[3] as string,
+      expiresAt: (data[4] as bigint).toString(),
+      claimed: data[5] as boolean,
+      refunded: data[6] as boolean,
+      voucherName: data[7] as string,
     };
   }
 
   async getSenderVouchers(chainId: number, sender: Address): Promise<string[]> {
     const client = this.getPublicClient(chainId);
-    const address = this.getContractAddress(chainId);
-
     const ids = await client.readContract({
-      address,
+      address: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'getSenderVouchers',
       args: [sender],
     });
-
     return (ids as bigint[]).map((id) => id.toString());
   }
 
@@ -109,15 +88,12 @@ export class BlockchainService implements OnModuleInit {
     voucherName: string,
   ): Promise<string[]> {
     const client = this.getPublicClient(chainId);
-    const address = this.getContractAddress(chainId);
-
     const ids = await client.readContract({
-      address,
+      address: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'getVouchersByName',
       args: [voucherName],
     });
-
     return (ids as bigint[]).map((id) => id.toString());
   }
 
@@ -126,14 +102,12 @@ export class BlockchainService implements OnModuleInit {
     voucherId: bigint,
   ): Promise<boolean> {
     const client = this.getPublicClient(chainId);
-    const address = this.getContractAddress(chainId);
-
     return client.readContract({
-      address,
+      address: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'isVoucherClaimable',
       args: [voucherId],
-    }) as Promise<boolean>;
+    });
   }
 
   async isVoucherRefundable(
@@ -141,54 +115,41 @@ export class BlockchainService implements OnModuleInit {
     voucherId: bigint,
   ): Promise<boolean> {
     const client = this.getPublicClient(chainId);
-    const address = this.getContractAddress(chainId);
-
     return client.readContract({
-      address,
+      address: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'isVoucherRefundable',
       args: [voucherId],
-    }) as Promise<boolean>;
+    });
   }
 
   async isContractPaused(chainId: number): Promise<boolean> {
     const client = this.getPublicClient(chainId);
-    const address = this.getContractAddress(chainId);
-
     return client.readContract({
-      address,
+      address: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'paused',
-    }) as Promise<boolean>;
+    });
   }
 
-  // ─── Write Tx Builders (return encoded calldata for frontend signing) ─────
+  // ─── Tx Builders (return tx data for frontend to sign) ───────────────────
 
-  /**
-   * Build batchTransfer calldata — frontend signs and sends
-   */
   buildBatchTransferTx(
     chainId: number,
     token: Address,
     recipients: Address[],
     amounts: bigint[],
   ) {
-    const address = this.getContractAddress(chainId);
     const isNative = token === '0x0000000000000000000000000000000000000000';
-    const totalValue = isNative ? amounts.reduce((a, b) => a + b, 0n) : 0n;
-
     return {
-      to: address,
+      to: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'batchTransfer' as const,
       args: [token, recipients, amounts] as const,
-      value: totalValue,
+      value: isNative ? amounts.reduce((a, b) => a + b, 0n) : 0n,
     };
   }
 
-  /**
-   * Build createVoucherBatch calldata — frontend signs and sends
-   */
   buildCreateVoucherBatchTx(
     chainId: number,
     token: Address,
@@ -197,39 +158,28 @@ export class BlockchainService implements OnModuleInit {
     amounts: bigint[],
     expirationTimes: bigint[],
   ) {
-    const address = this.getContractAddress(chainId);
     const isNative = token === '0x0000000000000000000000000000000000000000';
-    const totalValue = isNative ? amounts.reduce((a, b) => a + b, 0n) : 0n;
-
     return {
-      to: address,
+      to: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'createVoucherBatch' as const,
       args: [token, voucherName, claimCodes, amounts, expirationTimes] as const,
-      value: totalValue,
+      value: isNative ? amounts.reduce((a, b) => a + b, 0n) : 0n,
     };
   }
 
-  /**
-   * Build claimVoucher calldata — frontend signs and sends
-   */
   buildClaimVoucherTx(chainId: number, voucherName: string, claimCode: string) {
-    const address = this.getContractAddress(chainId);
     return {
-      to: address,
+      to: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'claimVoucher' as const,
       args: [voucherName, claimCode] as const,
     };
   }
 
-  /**
-   * Build refundVouchersByName calldata — frontend signs and sends
-   */
   buildRefundVouchersTx(chainId: number, voucherName: string) {
-    const address = this.getContractAddress(chainId);
     return {
-      to: address,
+      to: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'refundVouchersByName' as const,
       args: [voucherName] as const,
