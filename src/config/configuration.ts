@@ -1,0 +1,22 @@
+export default () => ({
+  port: parseInt(process.env.PORT || '3001', 10),
+  nodeEnv: process.env.NODE_ENV || 'development',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+
+  jwt: {
+    secret: process.env.JWT_SECRET || 'changeme',
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
+
+  celo: {
+    rpcUrl: process.env.CELO_RPC_URL || 'https://forno.celo.org',
+    chainId: 42220,
+    contractAddress: '0x7B7750Fb5f0ce9C908fCc0674F8B35782F6d40B3',
+  },
+
+  base: {
+    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+    chainId: 8453,
+    contractAddress: '0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6',
+  },
+});
