@@ -1,17 +1,30 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import configuration from './config/configuration';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { VouchersModule } from './vouchers/vouchers.module';
 import { BatchTransferModule } from './batch-transfer/batch-transfer.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { UserEntity } from './users/user.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
+    }),
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: 'postgres',
+        url: config.get<string>('DATABASE_URL'),
+        entities: [UserEntity],
+        synchronize: true, // auto-creates tables in dev — disable in production
+        logging: config.get('nodeEnv') === 'development',
+      }),
     }),
     BlockchainModule,
     VouchersModule,

@@ -27,10 +27,7 @@ export class AuthService {
     signature: string,
     message: string,
     isMiniPay = false,
-  ): Promise<{
-    token: string;
-    user: ReturnType<UsersService['findOrCreate']>;
-  }> {
+  ) {
     const stored = nonceStore.get(address.toLowerCase());
 
     if (!stored)
@@ -53,8 +50,8 @@ export class AuthService {
 
     nonceStore.delete(address.toLowerCase());
 
-    // Auto-create or load user profile
-    const user = this.users.findOrCreate(address, isMiniPay);
+    // Auto-create or load user from DB
+    const user = await this.users.findOrCreate(address, isMiniPay);
 
     const token = this.jwt.sign({
       sub: address.toLowerCase(),
