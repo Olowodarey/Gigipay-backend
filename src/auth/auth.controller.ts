@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { GetNonceDto, VerifySignatureDto } from './dto/auth.dto';
+import { GetNonceDto, VerifySignatureDto, PrivyLoginDto } from './dto/auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -9,17 +9,14 @@ export class AuthController {
   constructor(private readonly service: AuthService) {}
 
   @Get('nonce')
-  @ApiOperation({ summary: 'Get a sign-in nonce for a wallet address' })
+  @ApiOperation({ summary: 'Get sign-in nonce for a wallet address' })
   getNonce(@Query() dto: GetNonceDto) {
     const nonce = this.service.generateNonce(dto.address);
-    return {
-      nonce,
-      message: `Sign in to Gigipay: nonce=${nonce}`,
-    };
+    return { nonce, message: `Sign in to Gigipay: nonce=${nonce}` };
   }
 
   @Post('verify')
-  @ApiOperation({ summary: 'Verify wallet signature, get JWT + user profile' })
+  @ApiOperation({ summary: 'Verify wallet signature → JWT + user profile' })
   async verify(@Body() dto: VerifySignatureDto) {
     const { token, user } = await this.service.verifySignature(
       dto.address,
@@ -28,5 +25,13 @@ export class AuthController {
       dto.isMiniPay ?? false,
     );
     return { token, user };
+  }
+
+  @Post('privy')
+  @ApiOperation({
+    summary: 'Register/login via Privy (email/phone) → JWT + user profile',
+  })
+  async privyLogin(@Body() dto: PrivyLoginDto) {
+    return this.service.privyLogin(dto);
   }
 }

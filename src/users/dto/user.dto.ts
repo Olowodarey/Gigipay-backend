@@ -25,4 +25,9 @@ export class UpsertUserDto {
   @IsOptional()
   @IsBoolean()
   isMiniPay?: boolean;
+
+  @ApiPropertyOptional({ example: 'did:privy:abc123' })
+  @IsOptional()
+  @IsString()
+  privyUserId?: string;
 }

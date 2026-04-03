@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { verifyMessage } from 'viem';
 import type { Address } from 'viem';
 import { UsersService } from '../users/users.service';
+import { PrivyLoginDto } from './dto/auth.dto';
 
 const nonceStore = new Map<string, { nonce: string; expiresAt: number }>();
 
@@ -50,12 +51,27 @@ export class AuthService {
 
     nonceStore.delete(address.toLowerCase());
 
-    // Auto-create or load user from DB
     const user = await this.users.findOrCreate(address, isMiniPay);
-
     const token = this.jwt.sign({
       sub: address.toLowerCase(),
       address: address.toLowerCase(),
+    });
+
+    return { token, user };
+  }
+
+  async privyLogin(dto: PrivyLoginDto) {
+    const user = await this.users.upsert({
+      address: dto.walletAddress,
+      email: dto.email,
+      phone: dto.phone,
+      privyUserId: dto.privyUserId,
+    });
+
+    const token = this.jwt.sign({
+      sub: dto.walletAddress.toLowerCase(),
+      address: dto.walletAddress.toLowerCase(),
+      privyUserId: dto.privyUserId,
     });
 
     return { token, user };

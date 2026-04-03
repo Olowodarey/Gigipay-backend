@@ -22,6 +22,7 @@ export class UsersService {
       phone: dto.phone ?? existing?.phone,
       displayName: dto.displayName ?? existing?.displayName,
       isMiniPay: dto.isMiniPay ?? existing?.isMiniPay ?? false,
+      privyUserId: dto.privyUserId ?? existing?.privyUserId,
     });
 
     return this.repo.save(user);

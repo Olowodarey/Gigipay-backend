@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEmail } from 'class-validator';
 
 export class GetNonceDto {
   @ApiProperty({ example: '0xabc...' })
@@ -20,11 +20,28 @@ export class VerifySignatureDto {
   @IsString()
   message: string;
 
-  @ApiPropertyOptional({
-    example: false,
-    description: 'Whether connecting from MiniPay',
-  })
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   isMiniPay?: boolean;
+}
+
+export class PrivyLoginDto {
+  @ApiProperty({ example: 'did:privy:abc123' })
+  @IsString()
+  privyUserId: string;
+
+  @ApiProperty({ example: '0xabc...' })
+  @IsString()
+  walletAddress: string;
+
+  @ApiPropertyOptional({ example: '[email protected]' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ example: '+1234567890' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }
