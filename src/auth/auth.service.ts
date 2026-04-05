@@ -1,5 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { PrivyClient } from '@privy-io/server-auth';
 import { verifyMessage } from 'viem';
 import type { Address } from 'viem';
 import { UsersService } from '../users/users.service';
@@ -8,11 +14,20 @@ import { PrivyLoginDto } from './dto/auth.dto';
 const nonceStore = new Map<string, { nonce: string; expiresAt: number }>();
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
+  private privy: PrivyClient;
+
   constructor(
     private jwt: JwtService,
     private users: UsersService,
+    private config: ConfigService,
   ) {}
+
+  onModuleInit() {
+    const appId = this.config.get<string>('privy.appId') ?? '';
+    const appSecret = this.config.get<string>('privy.appSecret') ?? '';
+    this.privy = new PrivyClient(appId, appSecret);
+  }
 
   generateNonce(address: string): string {
     const nonce = Math.random().toString(36).substring(2, 15);
@@ -61,17 +76,45 @@ export class AuthService {
   }
 
   async privyLogin(dto: PrivyLoginDto) {
+    // Verify the Privy access token server-side
+    let privyUser: Awaited<ReturnType<PrivyClient['verifyAuthToken']>>;
+    try {
+      privyUser = await this.privy.verifyAuthToken(dto.accessToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired Privy token.');
+    }
+
+    const privyUserId = privyUser.userId;
+
+    // Extract linked accounts (email, phone, wallet)
+    const fullUser = await this.privy.getUser(privyUserId);
+
+    const emailAccount = fullUser.linkedAccounts.find(
+      (a) => a.type === 'email',
+    ) as { type: 'email'; address: string } | undefined;
+
+    const phoneAccount = fullUser.linkedAccounts.find(
+      (a) => a.type === 'phone',
+    ) as { type: 'phone'; number: string } | undefined;
+
+    const walletAccount = fullUser.linkedAccounts.find(
+      (a) => a.type === 'wallet',
+    ) as { type: 'wallet'; address: string } | undefined;
+
+    // Privy embedded wallet address, fallback to a privy-prefixed identifier
+    const walletAddress = walletAccount?.address ?? `privy:${privyUserId}`;
+
     const user = await this.users.upsert({
-      address: dto.walletAddress,
-      email: dto.email,
-      phone: dto.phone,
-      privyUserId: dto.privyUserId,
+      address: walletAddress,
+      email: emailAccount?.address,
+      phone: phoneAccount?.number,
+      privyUserId,
     });
 
     const token = this.jwt.sign({
-      sub: dto.walletAddress.toLowerCase(),
-      address: dto.walletAddress.toLowerCase(),
-      privyUserId: dto.privyUserId,
+      sub: walletAddress.toLowerCase(),
+      address: walletAddress.toLowerCase(),
+      privyUserId,
     });
 
     return { token, user };
