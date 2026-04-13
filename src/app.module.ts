@@ -22,7 +22,7 @@ import { UserEntity } from './users/user.entity';
         type: 'postgres',
         url: config.get<string>('DATABASE_URL'),
         entities: [UserEntity],
-        synchronize: true, // auto-creates tables in dev — disable in production
+        synchronize: config.get('nodeEnv') !== 'production',
         logging: config.get('nodeEnv') === 'development',
       }),
     }),
