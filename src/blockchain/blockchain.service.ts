@@ -9,11 +9,19 @@ export const CONTRACT_ADDRESSES: Record<number, Address> = {
   [base.id]: '0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6', // Base mainnet
 };
 
+// Use ReturnType so each client keeps its chain-specific types
+type CeloClient = ReturnType<
+  typeof createPublicClient<ReturnType<typeof http>, typeof celo>
+>;
+type BaseClient = ReturnType<
+  typeof createPublicClient<ReturnType<typeof http>, typeof base>
+>;
+type AnyClient = CeloClient | BaseClient;
+
 @Injectable()
 export class BlockchainService implements OnModuleInit {
   private readonly logger = new Logger(BlockchainService.name);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private publicClients = new Map<number, any>();
+  private publicClients = new Map<number, AnyClient>();
 
   constructor(private config: ConfigService) {}
 
@@ -22,20 +30,20 @@ export class BlockchainService implements OnModuleInit {
       celo.id,
       createPublicClient({
         chain: celo,
-        transport: http(this.config.get('celo.rpcUrl')),
+        transport: http(this.config.get<string>('celo.rpcUrl')),
       }),
     );
     this.publicClients.set(
       base.id,
       createPublicClient({
         chain: base,
-        transport: http(this.config.get('base.rpcUrl')),
+        transport: http(this.config.get<string>('base.rpcUrl')),
       }),
     );
     this.logger.log('Blockchain clients initialized for Celo and Base');
   }
 
-  getPublicClient(chainId: number) {
+  getPublicClient(chainId: number): AnyClient {
     const client = this.publicClients.get(chainId);
     if (!client) throw new Error(`No client for chain ${chainId}`);
     return client;
@@ -61,14 +69,14 @@ export class BlockchainService implements OnModuleInit {
     });
 
     return {
-      sender: data[0] as Address,
-      token: data[1] as Address,
-      amount: (data[2] as bigint).toString(),
-      claimCodeHash: data[3] as string,
-      expiresAt: (data[4] as bigint).toString(),
-      claimed: data[5] as boolean,
-      refunded: data[6] as boolean,
-      voucherName: data[7] as string,
+      sender: data[0],
+      token: data[1],
+      amount: data[2].toString(),
+      claimCodeHash: data[3],
+      expiresAt: data[4].toString(),
+      claimed: data[5],
+      refunded: data[6],
+      voucherName: data[7],
     };
   }
 
@@ -183,6 +191,24 @@ export class BlockchainService implements OnModuleInit {
       abi: GIGIPAY_ABI,
       functionName: 'refundVouchersByName' as const,
       args: [voucherName] as const,
+    };
+  }
+
+  buildPayBillTx(
+    chainId: number,
+    token: Address,
+    amount: bigint,
+    serviceType: string,
+    serviceId: string,
+    recipientHash: `0x${string}`,
+  ) {
+    const isNative = token === '0x0000000000000000000000000000000000000000';
+    return {
+      to: this.getContractAddress(chainId),
+      abi: GIGIPAY_ABI,
+      functionName: 'payBill' as const,
+      args: [token, amount, serviceType, serviceId, recipientHash] as const,
+      value: isNative ? amount : 0n,
     };
   }
 }
