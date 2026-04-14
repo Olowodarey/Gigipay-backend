@@ -82,13 +82,17 @@ export class BlockchainService implements OnModuleInit {
 
   async getSenderVouchers(chainId: number, sender: Address): Promise<string[]> {
     const client = this.getPublicClient(chainId);
-    const ids = await client.readContract({
-      address: this.getContractAddress(chainId),
-      abi: GIGIPAY_ABI,
-      functionName: 'getSenderVouchers',
-      args: [sender],
-    });
-    return (ids as bigint[]).map((id) => id.toString());
+    try {
+      const ids = await client.readContract({
+        address: this.getContractAddress(chainId),
+        abi: GIGIPAY_ABI,
+        functionName: 'getSenderVouchers',
+        args: [sender],
+      });
+      return (ids as bigint[]).map((id) => id.toString());
+    } catch {
+      return [];
+    }
   }
 
   async getVouchersByName(
@@ -96,13 +100,18 @@ export class BlockchainService implements OnModuleInit {
     voucherName: string,
   ): Promise<string[]> {
     const client = this.getPublicClient(chainId);
-    const ids = await client.readContract({
-      address: this.getContractAddress(chainId),
-      abi: GIGIPAY_ABI,
-      functionName: 'getVouchersByName',
-      args: [voucherName],
-    });
-    return (ids as bigint[]).map((id) => id.toString());
+    try {
+      const ids = await client.readContract({
+        address: this.getContractAddress(chainId),
+        abi: GIGIPAY_ABI,
+        functionName: 'getVouchersByName',
+        args: [voucherName],
+      });
+      return (ids as bigint[]).map((id) => id.toString());
+    } catch {
+      // Contract reverts with VoucherNotFound when name doesn't exist
+      return [];
+    }
   }
 
   async isVoucherClaimable(
