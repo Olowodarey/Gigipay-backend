@@ -39,11 +39,11 @@ export class VouchersService {
 
   buildCreateVoucherTx(dto: BuildCreateVoucherDto) {
     if (
-      dto.claimCodes.length !== dto.amounts.length ||
+      dto.claimCodeHashes.length !== dto.amounts.length ||
       dto.amounts.length !== dto.expirationTimes.length
     ) {
       throw new BadRequestException(
-        'claimCodes, amounts, and expirationTimes must have the same length',
+        'claimCodeHashes, amounts, and expirationTimes must have the same length',
       );
     }
 
@@ -51,7 +51,7 @@ export class VouchersService {
       dto.chainId,
       dto.token as Address,
       dto.voucherName,
-      dto.claimCodes,
+      dto.claimCodeHashes as `0x${string}`[],
       dto.amounts.map((a) => BigInt(a)),
       dto.expirationTimes.map((t) => BigInt(t)),
     );
@@ -60,8 +60,7 @@ export class VouchersService {
   buildClaimVoucherTx(dto: BuildClaimVoucherDto) {
     return this.blockchain.buildClaimVoucherTx(
       dto.chainId,
-      dto.voucherName,
-      dto.claimCode,
+      dto.claimCodeHash as `0x${string}`,
     );
   }
 

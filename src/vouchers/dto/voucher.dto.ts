@@ -1,12 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsString,
-  IsNumber,
-  IsArray,
-  IsOptional,
-  IsEthereumAddress,
-  ArrayMinSize,
-} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber, IsArray, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetVoucherDto {
@@ -61,11 +54,15 @@ export class BuildCreateVoucherDto {
   @IsString()
   voucherName: string;
 
-  @ApiProperty({ example: ['CODE1', 'CODE2'] })
+  @ApiProperty({
+    example: ['0xabc123...', '0xdef456...'],
+    description:
+      'keccak256(voucherName + claimCode) hashes — computed client-side',
+  })
   @IsArray()
   @IsString({ each: true })
   @ArrayMinSize(1)
-  claimCodes: string[];
+  claimCodeHashes: string[];
 
   @ApiProperty({
     example: ['10000000000000000000', '5000000000000000000'],
@@ -91,13 +88,12 @@ export class BuildClaimVoucherDto {
   @IsNumber()
   chainId: number;
 
-  @ApiProperty({ example: 'my-voucher-batch' })
+  @ApiProperty({
+    example: '0xabc123...',
+    description: 'keccak256(voucherName + claimCode) — computed client-side',
+  })
   @IsString()
-  voucherName: string;
-
-  @ApiProperty({ example: 'SECRET_CODE' })
-  @IsString()
-  claimCode: string;
+  claimCodeHash: string;
 }
 
 export class BuildRefundVouchersDto {
