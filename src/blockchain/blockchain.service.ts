@@ -5,7 +5,7 @@ import { celo, base } from 'viem/chains';
 import { GIGIPAY_ABI } from './abi';
 
 export const CONTRACT_ADDRESSES: Record<number, Address> = {
-  [celo.id]: '0x70b92a67F391F674aFFfCE3Dd7EB3d99e1f1E9a8', // Celo mainnet
+  [celo.id]: '0x88D7034cc9409f78F6B00D34FeA5B0941FbeC69b', // Celo mainnet
   [base.id]: '0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6', // Base mainnet
 };
 
@@ -171,7 +171,7 @@ export class BlockchainService implements OnModuleInit {
     chainId: number,
     token: Address,
     voucherName: string,
-    claimCodes: string[],
+    claimCodeHashes: `0x${string}`[],
     amounts: bigint[],
     expirationTimes: bigint[],
   ) {
@@ -180,17 +180,23 @@ export class BlockchainService implements OnModuleInit {
       to: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'createVoucherBatch' as const,
-      args: [token, voucherName, claimCodes, amounts, expirationTimes] as const,
+      args: [
+        token,
+        voucherName,
+        claimCodeHashes,
+        amounts,
+        expirationTimes,
+      ] as const,
       value: isNative ? amounts.reduce((a, b) => a + b, 0n) : 0n,
     };
   }
 
-  buildClaimVoucherTx(chainId: number, voucherName: string, claimCode: string) {
+  buildClaimVoucherTx(chainId: number, claimCodeHash: `0x${string}`) {
     return {
       to: this.getContractAddress(chainId),
       abi: GIGIPAY_ABI,
       functionName: 'claimVoucher' as const,
-      args: [voucherName, claimCode] as const,
+      args: [claimCodeHash] as const,
     };
   }
 

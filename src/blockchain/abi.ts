@@ -1,5 +1,7 @@
 export const GIGIPAY_ABI = [
   { inputs: [], stateMutability: 'nonpayable', type: 'constructor' },
+
+  // ─── Errors ───────────────────────────────────────────────────────────────
   { inputs: [], name: 'AccessControlBadConfirmation', type: 'error' },
   {
     inputs: [
@@ -9,11 +11,14 @@ export const GIGIPAY_ABI = [
     name: 'AccessControlUnauthorizedAccount',
     type: 'error',
   },
+  { inputs: [], name: 'BatchTooLarge', type: 'error' },
+  { inputs: [], name: 'DuplicateClaimCode', type: 'error' },
   { inputs: [], name: 'EmptyArray', type: 'error' },
   { inputs: [], name: 'EnforcedPause', type: 'error' },
   { inputs: [], name: 'ExpectedPause', type: 'error' },
   { inputs: [], name: 'IncorrectNativeAmount', type: 'error' },
   { inputs: [], name: 'InsufficientAllowance', type: 'error' },
+  { inputs: [], name: 'InsufficientContractBalance', type: 'error' },
   { inputs: [], name: 'InvalidAmount', type: 'error' },
   { inputs: [], name: 'InvalidClaimCode', type: 'error' },
   { inputs: [], name: 'InvalidExpirationTime', type: 'error' },
@@ -24,6 +29,7 @@ export const GIGIPAY_ABI = [
   { inputs: [], name: 'InvalidServiceType', type: 'error' },
   { inputs: [], name: 'LengthMismatch', type: 'error' },
   { inputs: [], name: 'NotInitializing', type: 'error' },
+  { inputs: [], name: 'ReentrantCall', type: 'error' },
   {
     inputs: [{ internalType: 'address', name: 'token', type: 'address' }],
     name: 'SafeERC20FailedOperation',
@@ -328,6 +334,13 @@ export const GIGIPAY_ABI = [
   },
   {
     inputs: [],
+    name: 'MAX_BATCH_SIZE',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
     name: 'PAUSER_ROLE',
     outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
     stateMutability: 'view',
@@ -352,9 +365,9 @@ export const GIGIPAY_ABI = [
     type: 'function',
   },
   {
+    // claimVoucher now takes only the combined hash (voucherName + claimCode hashed client-side)
     inputs: [
-      { internalType: 'string', name: 'voucherName', type: 'string' },
-      { internalType: 'string', name: 'claimCode', type: 'string' },
+      { internalType: 'bytes32', name: 'claimCodeHash', type: 'bytes32' },
     ],
     name: 'claimVoucher',
     outputs: [],
@@ -362,10 +375,11 @@ export const GIGIPAY_ABI = [
     type: 'function',
   },
   {
+    // createVoucherBatch now takes bytes32[] hashes (not string[] codes)
     inputs: [
       { internalType: 'address', name: 'token', type: 'address' },
       { internalType: 'string', name: 'voucherName', type: 'string' },
-      { internalType: 'string[]', name: 'claimCodes', type: 'string[]' },
+      { internalType: 'bytes32[]', name: 'claimCodeHashes', type: 'bytes32[]' },
       { internalType: 'uint256[]', name: 'amounts', type: 'uint256[]' },
       { internalType: 'uint256[]', name: 'expirationTimes', type: 'uint256[]' },
     ],
@@ -467,6 +481,17 @@ export const GIGIPAY_ABI = [
     type: 'function',
   },
   {
+    inputs: [
+      { internalType: 'address', name: 'token', type: 'address' },
+      { internalType: 'address', name: 'to', type: 'address' },
+      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    ],
+    name: 'recoverNative',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
     inputs: [{ internalType: 'string', name: 'voucherName', type: 'string' }],
     name: 'refundVouchersByName',
     outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
@@ -494,16 +519,6 @@ export const GIGIPAY_ABI = [
     type: 'function',
   },
   {
-    inputs: [
-      { internalType: 'address', name: '', type: 'address' },
-      { internalType: 'uint256', name: '', type: 'uint256' },
-    ],
-    name: 'senderVouchers',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
     inputs: [{ internalType: 'bytes4', name: 'interfaceId', type: 'bytes4' }],
     name: 'supportsInterface',
     outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
@@ -515,6 +530,13 @@ export const GIGIPAY_ABI = [
     name: 'unpause',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
+    name: 'claimHashToVoucherId',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
     type: 'function',
   },
   {
@@ -559,6 +581,16 @@ export const GIGIPAY_ABI = [
     name: 'withdrawBillFunds',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { internalType: 'address', name: '', type: 'address' },
+      { internalType: 'uint256', name: '', type: 'uint256' },
+    ],
+    name: 'senderVouchers',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
     type: 'function',
   },
   { stateMutability: 'payable', type: 'receive' },
