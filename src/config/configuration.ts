@@ -15,9 +15,9 @@ export default () => ({
   },
 
   celo: {
-    rpcUrl: process.env.CELO_RPC_URL || 'https://forno.celo.org',
+    rpcUrl: process.env.CELO_RPC_URL || 'https://rpc.ankr.com/celo',
     chainId: 42220,
-    contractAddress: '0x7B7750Fb5f0ce9C908fCc0674F8B35782F6d40B3',
+    contractAddress: '0x70b92a67F391F674aFFfCE3Dd7EB3d99e1f1E9a8',
   },
 
   base: {
