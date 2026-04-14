@@ -1,98 +1,184 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Gigipay Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS API server for the Gigipay protocol. Handles authentication, blockchain reads, bill payment fulfilment via ClubKonnect, and user management.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## What it does
 
-## Description
+- Authenticates users via wallet signature (SIWE-style) or Privy (email/phone)
+- Issues JWTs for protected routes
+- Reads on-chain state (vouchers, balances, contract paused) via viem public clients
+- Builds transaction calldata for the frontend to sign
+- Listens for `BillPaymentInitiated` on-chain events and fulfils orders via ClubKonnect API (airtime, data, TV, electricity)
+- Stores users and bill orders in PostgreSQL
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tech Stack
 
-## Project setup
+- **NestJS** — framework
+- **TypeORM + PostgreSQL** — database
+- **viem** — blockchain reads
+- **Privy** — email/phone auth
+- **Swagger** — API docs at `/api/docs`
+- **Docker** — containerised deployment
 
-```bash
-$ pnpm install
+## Project Structure
+
+```
+src/
+├── auth/               # Wallet signature + Privy login, JWT issuance
+├── users/              # User entity, profile management
+├── blockchain/         # viem clients, contract reads, tx builders
+├── vouchers/           # Voucher read endpoints
+├── batch-transfer/     # Batch transfer tx builder endpoint
+├── bills/              # Bill payment fulfilment (ClubKonnect integration)
+└── config/             # Environment configuration
 ```
 
-## Compile and run the project
+## API Modules
+
+### Auth — `/api/auth`
+
+| Method | Endpoint  | Description                                      |
+| ------ | --------- | ------------------------------------------------ |
+| GET    | `/nonce`  | Get sign-in nonce for a wallet address           |
+| POST   | `/verify` | Verify wallet signature, returns JWT + user      |
+| POST   | `/privy`  | Login via Privy access token, returns JWT + user |
+
+### Users — `/api/users`
+
+| Method | Endpoint | Description                                |
+| ------ | -------- | ------------------------------------------ |
+| GET    | `/me`    | Get current user profile (JWT required)    |
+| POST   | `/`      | Update profile (displayName, email, phone) |
+
+### Vouchers — `/api/vouchers`
+
+| Method | Endpoint        | Description                            |
+| ------ | --------------- | -------------------------------------- |
+| GET    | `/`             | Get voucher by ID                      |
+| GET    | `/by-name`      | Get voucher IDs by campaign name       |
+| GET    | `/by-sender`    | Get voucher IDs by sender address      |
+| GET    | `/claimable`    | Check if a voucher is claimable        |
+| GET    | `/refundable`   | Check if a voucher is refundable       |
+| GET    | `/paused`       | Check if contract is paused            |
+| POST   | `/build/create` | Build createVoucherBatch tx calldata   |
+| POST   | `/build/claim`  | Build claimVoucher tx calldata         |
+| POST   | `/build/refund` | Build refundVouchersByName tx calldata |
+
+### Batch Transfer — `/api/batch-transfer`
+
+| Method | Endpoint  | Description                     |
+| ------ | --------- | ------------------------------- |
+| POST   | `/build`  | Build batchTransfer tx calldata |
+| GET    | `/paused` | Check if contract is paused     |
+
+### Bills — `/api/bills` _(coming soon)_
+
+| Method | Endpoint     | Description                          |
+| ------ | ------------ | ------------------------------------ |
+| GET    | `/quote`     | Get crypto equivalent for NGN amount |
+| POST   | `/pay`       | Submit bill payment order            |
+| GET    | `/order/:id` | Get order status                     |
+
+## Setup
+
+### Prerequisites
+
+- Node.js >= 18
+- pnpm
+- PostgreSQL database
+
+### Install
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
 ```
 
-## Run tests
+### Environment
+
+Copy the example and fill in your values:
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+cp .env.example .env
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+# App
+PORT=3001
+NODE_ENV=development
+
+# Frontend URL (for CORS)
+FRONTEND_URL=http://localhost:3000
+
+# PostgreSQL connection string
+DATABASE_URL=postgresql://user:password@localhost:5432/gigipay
+
+# JWT — generate a strong random secret for production
+JWT_SECRET=your_random_secret_here
+JWT_EXPIRES_IN=7d
+
+# Privy — get from https://privy.io dashboard
+PRIVY_APP_ID=
+PRIVY_APP_SECRET=
+
+# Blockchain RPC endpoints
+CELO_RPC_URL=https://rpc.ankr.com/celo
+BASE_RPC_URL=https://mainnet.base.org
+
+# ClubKonnect — get from https://clubkonnect.com (bills feature)
+CLUBKONNECT_USER_ID=
+CLUBKONNECT_API_KEY=
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Run
 
-## Resources
+```bash
+# development (watch mode)
+pnpm run start:dev
 
-Check out a few resources that may come in handy when working with NestJS:
+# production
+pnpm run start:prod
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+API docs available at: `http://localhost:3001/api/docs`
 
-## Support
+### Docker
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+docker build -t gigipay-backend .
+docker run -p 3001:3001 --env-file .env gigipay-backend
+```
 
-## Stay in touch
+## Authentication Flow
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**Wallet (MetaMask, MiniPay, etc.):**
 
-## License
+1. `GET /auth/nonce?address=0x...` — get a one-time nonce
+2. Sign the returned message with the wallet
+3. `POST /auth/verify` with address + signature + message — get JWT
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Privy (email/phone):**
+
+1. User logs in via Privy SDK on the frontend
+2. Frontend gets a Privy access token
+3. `POST /auth/privy` with the access token — get JWT
+
+All protected routes require `Authorization: Bearer <jwt>` header.
+
+## Bill Payment Flow
+
+1. User calls `payBill` on the contract from the frontend (wallet signs)
+2. Contract emits `BillPaymentInitiated` event with orderId, buyer, token, amount, serviceType, serviceId, recipientHash
+3. Backend event listener picks it up
+4. Backend verifies the on-chain payment
+5. Backend calls ClubKonnect API to fulfil the order
+6. Order status updated in DB (pending → success / failed)
+7. Failed orders flagged for refund
+
+## Contract Addresses
+
+| Network | Address                                      |
+| ------- | -------------------------------------------- |
+| Celo    | `0x70b92a67F391F674aFFfCE3Dd7EB3d99e1f1E9a8` |
+| Base    | `0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6` |
+
+These are configured in `src/blockchain/blockchain.service.ts`.
