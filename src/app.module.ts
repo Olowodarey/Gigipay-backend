@@ -7,6 +7,7 @@ import { VouchersModule } from './vouchers/vouchers.module';
 import { BatchTransferModule } from './batch-transfer/batch-transfer.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { AirtimeModule } from './airtime/airtime.module';
 import { UserEntity } from './users/user.entity';
 
 @Module({
@@ -31,6 +32,7 @@ import { UserEntity } from './users/user.entity';
     BatchTransferModule,
     AuthModule,
     UsersModule,
+    AirtimeModule,
   ],
 })
 export class AppModule {}

@@ -25,4 +25,10 @@ export default () => ({
     chainId: 8453,
     contractAddress: '0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6',
   },
+
+  nello: {
+    userId: process.env.NELLO_USER_ID || '',
+    apiKey: process.env.NELLO_API_KEY || '',
+    callbackUrl: process.env.NELLO_CALLBACK_URL || '',
+  },
 });
