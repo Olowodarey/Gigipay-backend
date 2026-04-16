@@ -7,58 +7,63 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
-// Supported CoinGecko coin IDs per chain
 export const CHAIN_COIN_ID: Record<number, string> = {
-  42220: 'celo', // Celo → CELO
-  8453: 'ethereum', // Base → ETH
+  42220: 'celo',
+  8453: 'ethereum',
 };
 
 export interface TokenRate {
   coinId: string;
   ngn: number;
   usd: number;
-  updatedAt: number; // unix ms
+  updatedAt: number;
 }
 
 @Injectable()
 export class RatesService {
   private readonly logger = new Logger(RatesService.name);
   private cache = new Map<string, { rate: TokenRate; expiresAt: number }>();
-  private readonly TTL_MS = 60_000; // 60 second cache
+  private readonly TTL_MS = 60_000;
 
   constructor(
     private readonly config: ConfigService,
     private readonly http: HttpService,
   ) {}
 
-  /**
-   * Get NGN & USD rate for a given CoinGecko coin ID.
-   * Results are cached for 60 seconds to stay within free-tier limits.
-   */
+  // ─── Private helper — single place that calls CoinGecko ──────────────────
+
+  private async fetchFromCoinGecko(
+    coinIds: string,
+  ): Promise<Record<string, { ngn: number; usd: number }>> {
+    const apiKey = this.config.get<string>('coingecko.apiKey');
+
+    // Pass key as header (recommended) — avoids axios param serialisation issues
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['x-cg-demo-api-key'] = apiKey;
+
+    const { data } = await firstValueFrom(
+      this.http.get<Record<string, { ngn: number; usd: number }>>(
+        'https://api.coingecko.com/api/v3/simple/price',
+        {
+          params: { ids: coinIds, vs_currencies: 'ngn,usd' },
+          headers,
+        },
+      ),
+    );
+
+    return data;
+  }
+
+  // ─── Public methods ───────────────────────────────────────────────────────
+
   async getRate(coinId: string): Promise<TokenRate> {
     const cached = this.cache.get(coinId);
-    if (cached && Date.now() < cached.expiresAt) {
-      return cached.rate;
-    }
-
-    const apiKey = this.config.get<string>('coingecko.apiKey');
-    const url = `https://api.coingecko.com/api/v3/simple/price`;
-
-    const params: Record<string, string> = {
-      ids: coinId,
-      vs_currencies: 'ngn,usd',
-    };
-    if (apiKey) params['x_cg_demo_api_key'] = apiKey;
+    if (cached && Date.now() < cached.expiresAt) return cached.rate;
 
     try {
-      const { data } = await firstValueFrom(
-        this.http.get<Record<string, { ngn: number; usd: number }>>(url, {
-          params,
-        }),
-      );
-
+      const data = await this.fetchFromCoinGecko(coinId);
       const coin = data[coinId];
-      if (!coin) throw new Error(`CoinGecko returned no data for ${coinId}`);
+      if (!coin) throw new Error(`No data for ${coinId}`);
 
       const rate: TokenRate = {
         coinId,
@@ -66,57 +71,32 @@ export class RatesService {
         usd: coin.usd,
         updatedAt: Date.now(),
       };
-
       this.cache.set(coinId, { rate, expiresAt: Date.now() + this.TTL_MS });
-      this.logger.debug(
-        `Rate fetched: ${coinId} = ₦${coin.ngn} / $${coin.usd}`,
-      );
+      this.logger.log(`Rate: ${coinId} = ₦${coin.ngn} / $${coin.usd}`);
       return rate;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`CoinGecko fetch failed for ${coinId}: ${msg}`);
-      // Return stale cache if available rather than hard-failing
-      if (cached) {
-        this.logger.warn(`Returning stale cache for ${coinId}`);
-        return cached.rate;
-      }
+      this.logger.error(`CoinGecko failed for ${coinId}: ${msg}`);
+      if (cached) return cached.rate; // stale fallback
       throw new InternalServerErrorException('Failed to fetch exchange rate');
     }
   }
 
-  /**
-   * Get rates for both Celo and Base native tokens in one call.
-   */
   async getAllRates(): Promise<Record<string, TokenRate>> {
     const coinIds = Object.values(CHAIN_COIN_ID);
-    const apiKey = this.config.get<string>('coingecko.apiKey');
-    const url = `https://api.coingecko.com/api/v3/simple/price`;
 
-    // Check if all are cached
     const allCached = coinIds.every((id) => {
       const c = this.cache.get(id);
       return c && Date.now() < c.expiresAt;
     });
-
     if (allCached) {
       return Object.fromEntries(
         coinIds.map((id) => [id, this.cache.get(id)!.rate]),
       );
     }
 
-    const params: Record<string, string> = {
-      ids: coinIds.join(','),
-      vs_currencies: 'ngn,usd',
-    };
-    if (apiKey) params['x_cg_demo_api_key'] = apiKey;
-
     try {
-      const { data } = await firstValueFrom(
-        this.http.get<Record<string, { ngn: number; usd: number }>>(url, {
-          params,
-        }),
-      );
-
+      const data = await this.fetchFromCoinGecko(coinIds.join(','));
       const result: Record<string, TokenRate> = {};
       for (const id of coinIds) {
         const coin = data[id];
@@ -134,7 +114,6 @@ export class RatesService {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`CoinGecko bulk fetch failed: ${msg}`);
-      // Return whatever is in cache
       const stale: Record<string, TokenRate> = {};
       for (const id of coinIds) {
         const c = this.cache.get(id);
@@ -145,29 +124,11 @@ export class RatesService {
     }
   }
 
-  /**
-   * Convert an NGN amount to the equivalent token amount for a given chain.
-   * Returns the token amount as a string with 6 decimal places.
-   */
-  async convertNgnToToken(
-    chainId: number,
-    ngnAmount: number,
-  ): Promise<{
-    tokenAmount: string;
-    rate: number;
-    coinId: string;
-  }> {
+  async convertNgnToToken(chainId: number, ngnAmount: number) {
     const coinId = CHAIN_COIN_ID[chainId];
     if (!coinId)
       throw new InternalServerErrorException(`Unsupported chain: ${chainId}`);
-
     const { ngn } = await this.getRate(coinId);
-    const tokenAmount = ngnAmount / ngn;
-
-    return {
-      tokenAmount: tokenAmount.toFixed(6),
-      rate: ngn,
-      coinId,
-    };
+    return { tokenAmount: (ngnAmount / ngn).toFixed(6), rate: ngn, coinId };
   }
 }
