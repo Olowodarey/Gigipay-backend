@@ -27,7 +27,12 @@ import { AirtimeOrderEntity } from './airtime/airtime-order.entity';
         url: config.get<string>('DATABASE_URL'),
         entities: [UserEntity, AirtimeOrderEntity],
         synchronize: config.get('nodeEnv') !== 'production',
+        migrationsRun: config.get('nodeEnv') === 'production',
         logging: config.get('nodeEnv') === 'development',
+        ssl:
+          config.get('nodeEnv') === 'production'
+            ? { rejectUnauthorized: false }
+            : false,
       }),
     }),
     BlockchainModule,

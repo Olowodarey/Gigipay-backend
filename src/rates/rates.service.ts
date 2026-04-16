@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 
 export const CHAIN_COIN_ID: Record<number, string> = {
   42220: 'celo',
@@ -30,31 +30,33 @@ export class RatesService {
     private readonly http: HttpService,
   ) {}
 
-  // ─── Private helper — single place that calls CoinGecko ──────────────────
-
   private async fetchFromCoinGecko(
     coinIds: string,
   ): Promise<Record<string, { ngn: number; usd: number }>> {
     const apiKey = this.config.get<string>('coingecko.apiKey');
 
-    // Pass key as header (recommended) — avoids axios param serialisation issues
+    // Use pro endpoint if key present, otherwise public endpoint
+    const baseUrl = apiKey
+      ? 'https://pro-api.coingecko.com/api/v3/simple/price'
+      : 'https://api.coingecko.com/api/v3/simple/price';
+
     const headers: Record<string, string> = {};
-    if (apiKey) headers['x-cg-demo-api-key'] = apiKey;
+    if (apiKey) headers['x-cg-pro-api-key'] = apiKey;
+
+    this.logger.debug(`Fetching rates for: ${coinIds}`);
 
     const { data } = await firstValueFrom(
-      this.http.get<Record<string, { ngn: number; usd: number }>>(
-        'https://api.coingecko.com/api/v3/simple/price',
-        {
+      this.http
+        .get<Record<string, { ngn: number; usd: number }>>(baseUrl, {
           params: { ids: coinIds, vs_currencies: 'ngn,usd' },
           headers,
-        },
-      ),
+        })
+        .pipe(timeout(8000)),
     );
 
+    this.logger.debug(`CoinGecko response: ${JSON.stringify(data)}`);
     return data;
   }
-
-  // ─── Public methods ───────────────────────────────────────────────────────
 
   async getRate(coinId: string): Promise<TokenRate> {
     const cached = this.cache.get(coinId);
@@ -63,7 +65,7 @@ export class RatesService {
     try {
       const data = await this.fetchFromCoinGecko(coinId);
       const coin = data[coinId];
-      if (!coin) throw new Error(`No data for ${coinId}`);
+      if (!coin) throw new Error(`CoinGecko returned empty data for ${coinId}`);
 
       const rate: TokenRate = {
         coinId,
@@ -72,19 +74,23 @@ export class RatesService {
         updatedAt: Date.now(),
       };
       this.cache.set(coinId, { rate, expiresAt: Date.now() + this.TTL_MS });
-      this.logger.log(`Rate: ${coinId} = ₦${coin.ngn} / $${coin.usd}`);
+      this.logger.log(`Rate cached: ${coinId} = ₦${coin.ngn} / $${coin.usd}`);
       return rate;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`CoinGecko failed for ${coinId}: ${msg}`);
-      if (cached) return cached.rate; // stale fallback
-      throw new InternalServerErrorException('Failed to fetch exchange rate');
+      if (cached) {
+        this.logger.warn(`Returning stale cache for ${coinId}`);
+        return cached.rate;
+      }
+      throw new InternalServerErrorException(
+        `Failed to fetch rate for ${coinId}: ${msg}`,
+      );
     }
   }
 
   async getAllRates(): Promise<Record<string, TokenRate>> {
     const coinIds = Object.values(CHAIN_COIN_ID);
-
     const allCached = coinIds.every((id) => {
       const c = this.cache.get(id);
       return c && Date.now() < c.expiresAt;
@@ -113,14 +119,14 @@ export class RatesService {
       return result;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`CoinGecko bulk fetch failed: ${msg}`);
+      this.logger.error(`Bulk fetch failed: ${msg}`);
       const stale: Record<string, TokenRate> = {};
       for (const id of coinIds) {
         const c = this.cache.get(id);
         if (c) stale[id] = c.rate;
       }
       if (Object.keys(stale).length) return stale;
-      throw new InternalServerErrorException('Failed to fetch exchange rates');
+      throw new InternalServerErrorException(`Failed to fetch rates: ${msg}`);
     }
   }
 
