@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createPublicClient, http, type Address } from 'viem';
+import { createPublicClient, http, type Address, erc20Abi } from 'viem';
 import { celo, base } from 'viem/chains';
 import { GIGIPAY_ABI } from './abi';
 
@@ -225,5 +225,27 @@ export class BlockchainService implements OnModuleInit {
       args: [token, amount, serviceType, serviceId, recipientHash] as const,
       value: isNative ? amount : 0n,
     };
+  }
+
+  // ─── Balance Reads ────────────────────────────────────────────────────────
+
+  /** Native token (CELO / ETH) balance held by the contract */
+  async getContractNativeBalance(chainId: number): Promise<bigint> {
+    const client = this.getPublicClient(chainId);
+    return client.getBalance({ address: this.getContractAddress(chainId) });
+  }
+
+  /** ERC20 token balance held by the contract */
+  async getContractTokenBalance(
+    chainId: number,
+    tokenAddress: Address,
+  ): Promise<bigint> {
+    const client = this.getPublicClient(chainId);
+    return client.readContract({
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [this.getContractAddress(chainId)],
+    });
   }
 }
