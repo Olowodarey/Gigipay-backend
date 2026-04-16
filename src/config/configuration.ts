@@ -31,4 +31,8 @@ export default () => ({
     apiKey: process.env.NELLO_API_KEY || '',
     callbackUrl: process.env.NELLO_CALLBACK_URL || '',
   },
+
+  coingecko: {
+    apiKey: process.env.COINGECKO_API_KEY || '',
+  },
 });
