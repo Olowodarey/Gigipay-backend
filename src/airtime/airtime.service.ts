@@ -14,24 +14,10 @@ import {
   QueryAirtimeDto,
   CancelAirtimeDto,
   BuildAirtimePayBillDto,
+  NelloResponse,
 } from './dto/airtime.dto';
 import type { Address } from 'viem';
 import { keccak256, encodePacked } from 'viem';
-
-/** Raw response shape from nellobytesystems */
-interface NelloResponse {
-  orderid?: string;
-  statuscode?: string;
-  status?: string;
-  remark?: string;
-  ordertype?: string;
-  mobilenetwork?: string;
-  mobilenumber?: string;
-  amountcharged?: string;
-  walletbalance?: string;
-  date?: string;
-  requestid?: string;
-}
 
 @Injectable()
 export class AirtimeService {
@@ -71,9 +57,9 @@ export class AirtimeService {
 
   /** Buy airtime via nellobytesystems API */
   async buyAirtime(dto: BuyAirtimeDto): Promise<NelloResponse> {
-    const userId = this.config.get<string>('nello.userId');
-    const apiKey = this.config.get<string>('nello.apiKey');
-    const callbackUrl = this.config.get<string>('nello.callbackUrl');
+    const userId = this.config.get<string>('nello.userId') ?? '';
+    const apiKey = this.config.get<string>('nello.apiKey') ?? '';
+    const callbackUrl = this.config.get<string>('nello.callbackUrl') ?? '';
     const requestId = dto.requestId ?? uuidv4();
 
     const params = new URLSearchParams({
@@ -84,8 +70,8 @@ export class AirtimeService {
       MobileNumber: dto.phoneNumber,
       RequestID: requestId,
       CallBackURL: callbackUrl,
-      ...(dto.bonusType ? { BonusType: dto.bonusType } : {}),
     });
+    if (dto.bonusType) params.set('BonusType', dto.bonusType);
 
     const url = `${this.baseUrl}/APIAirtimeV1.asp?${params.toString()}`;
     this.logger.log(
@@ -103,8 +89,8 @@ export class AirtimeService {
       throw new BadRequestException('Provide either orderId or requestId');
     }
 
-    const userId = this.config.get<string>('nello.userId');
-    const apiKey = this.config.get<string>('nello.apiKey');
+    const userId = this.config.get<string>('nello.userId') ?? '';
+    const apiKey = this.config.get<string>('nello.apiKey') ?? '';
 
     const params = new URLSearchParams({ UserID: userId, APIKey: apiKey });
     if (dto.orderId) params.set('OrderID', dto.orderId);
@@ -116,8 +102,8 @@ export class AirtimeService {
 
   /** Cancel a transaction by orderId */
   async cancelTransaction(dto: CancelAirtimeDto): Promise<NelloResponse> {
-    const userId = this.config.get<string>('nello.userId');
-    const apiKey = this.config.get<string>('nello.apiKey');
+    const userId = this.config.get<string>('nello.userId') ?? '';
+    const apiKey = this.config.get<string>('nello.apiKey') ?? '';
 
     const params = new URLSearchParams({
       UserID: userId,
@@ -131,7 +117,7 @@ export class AirtimeService {
 
   /** Fetch available networks and discount rates */
   async getNetworks(): Promise<NelloResponse> {
-    const userId = this.config.get<string>('nello.userId');
+    const userId = this.config.get<string>('nello.userId') ?? '';
     const url = `${this.baseUrl}/APIAirtimeDiscountV2.asp?UserID=${userId}`;
     return this.callNello<NelloResponse>(url);
   }

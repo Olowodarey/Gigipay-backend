@@ -14,6 +14,7 @@ import {
   BuyAirtimeDto,
   QueryAirtimeDto,
   CancelAirtimeDto,
+  NelloResponse,
 } from './dto/airtime.dto';
 
 @ApiTags('airtime')
@@ -33,27 +34,27 @@ export class AirtimeController {
 
   @Get('networks')
   @ApiOperation({ summary: 'Get available networks and discount rates' })
-  getNetworks() {
+  getNetworks(): Promise<NelloResponse> {
     return this.service.getNetworks();
   }
 
   @Post('buy')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Buy airtime directly via provider API' })
-  buyAirtime(@Body() dto: BuyAirtimeDto) {
+  buyAirtime(@Body() dto: BuyAirtimeDto): Promise<NelloResponse> {
     return this.service.buyAirtime(dto);
   }
 
   @Get('query')
   @ApiOperation({ summary: 'Query transaction status by orderId or requestId' })
-  queryTransaction(@Query() dto: QueryAirtimeDto) {
+  queryTransaction(@Query() dto: QueryAirtimeDto): Promise<NelloResponse> {
     return this.service.queryTransaction(dto);
   }
 
   @Post('cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel a pending transaction by orderId' })
-  cancelTransaction(@Body() dto: CancelAirtimeDto) {
+  cancelTransaction(@Body() dto: CancelAirtimeDto): Promise<NelloResponse> {
     return this.service.cancelTransaction(dto);
   }
 

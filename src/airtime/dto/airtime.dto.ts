@@ -9,6 +9,21 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
+/** Shared response shape from nellobytesystems — exported so controller can reference it */
+export interface NelloResponse {
+  orderid?: string;
+  statuscode?: string;
+  status?: string;
+  remark?: string;
+  ordertype?: string;
+  mobilenetwork?: string;
+  mobilenumber?: string;
+  amountcharged?: string;
+  walletbalance?: string;
+  date?: string;
+  requestid?: string;
+}
+
 export const MOBILE_NETWORKS = {
   MTN: '01',
   GLO: '02',
