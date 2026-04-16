@@ -3,11 +3,16 @@ import {
   Logger,
   BadRequestException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
 import { v4 as uuidv4 } from 'uuid';
+import { keccak256, encodePacked } from 'viem';
+import type { Address } from 'viem';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import {
   BuyAirtimeDto,
@@ -15,9 +20,10 @@ import {
   CancelAirtimeDto,
   BuildAirtimePayBillDto,
   NelloResponse,
+  type MobileNetworkCode,
 } from './dto/airtime.dto';
-import type { Address } from 'viem';
-import { keccak256, encodePacked } from 'viem';
+import { RegisterAirtimeOrderDto } from './dto/register-order.dto';
+import { AirtimeOrderEntity } from './airtime-order.entity';
 
 @Injectable()
 export class AirtimeService {
@@ -28,19 +34,16 @@ export class AirtimeService {
     private readonly config: ConfigService,
     private readonly http: HttpService,
     private readonly blockchain: BlockchainService,
+    @InjectRepository(AirtimeOrderEntity)
+    private readonly orderRepo: Repository<AirtimeOrderEntity>,
   ) {}
 
   // ─── Tx Builder ──────────────────────────────────────────────────────────
 
-  /**
-   * Build a payBill transaction for the frontend to sign.
-   * serviceType = "airtime", serviceId = network code (01/02/03/04)
-   */
   buildPayBillTx(dto: BuildAirtimePayBillDto) {
     const recipientHash = keccak256(
       encodePacked(['string'], [dto.phoneNumber]),
     );
-
     const tx = this.blockchain.buildPayBillTx(
       dto.chainId,
       dto.token as Address,
@@ -49,13 +52,131 @@ export class AirtimeService {
       dto.networkCode,
       recipientHash,
     );
-
     return { ...tx, value: tx.value?.toString() };
+  }
+
+  // ─── Order Registration ───────────────────────────────────────────────────
+
+  /**
+   * Frontend calls this AFTER the tx is confirmed on-chain.
+   * Stores the plain-text phone number so the listener can fulfill the order.
+   */
+  async registerOrder(
+    dto: RegisterAirtimeOrderDto,
+  ): Promise<AirtimeOrderEntity> {
+    const recipientHash = keccak256(
+      encodePacked(['string'], [dto.phoneNumber]),
+    );
+
+    const order = this.orderRepo.create({
+      chainId: dto.chainId,
+      chainOrderId: dto.chainOrderId ?? null,
+      recipientHash,
+      phoneNumber: dto.phoneNumber,
+      networkCode: dto.networkCode,
+      amountNgn: dto.amountNgn,
+      txHash: dto.txHash,
+      status: 'pending',
+    });
+
+    const saved = await this.orderRepo.save(order);
+    this.logger.log(
+      `Order registered: id=${saved.id} phone=${dto.phoneNumber} amount=₦${dto.amountNgn}`,
+    );
+
+    // If chainOrderId already known, fulfill immediately
+    if (dto.chainOrderId) {
+      void this.fulfillOrder(saved);
+    }
+
+    return saved;
+  }
+
+  /** Update chainOrderId once the event is parsed from the chain */
+  async attachChainOrderId(
+    txHash: string,
+    chainOrderId: string,
+  ): Promise<void> {
+    const order = await this.orderRepo.findOne({ where: { txHash } });
+    if (!order) return;
+
+    order.chainOrderId = chainOrderId;
+    await this.orderRepo.save(order);
+    void this.fulfillOrder(order);
+  }
+
+  // ─── Fulfillment ──────────────────────────────────────────────────────────
+
+  async fulfillOrder(order: AirtimeOrderEntity): Promise<void> {
+    if (order.status !== 'pending') return;
+
+    order.status = 'processing';
+    await this.orderRepo.save(order);
+
+    this.logger.log(
+      `Fulfilling order ${order.id} → ₦${order.amountNgn} to ${order.phoneNumber} (${order.networkCode})`,
+    );
+
+    try {
+      const result = await this.buyAirtime({
+        networkCode: order.networkCode as MobileNetworkCode,
+        amount: order.amountNgn,
+        phoneNumber: order.phoneNumber,
+        requestId: `order-${order.id}`,
+      });
+
+      const success =
+        result.statuscode === '100' || result.statuscode === '200';
+
+      order.status = success ? 'fulfilled' : 'failed';
+      order.providerOrderId = result.orderid ?? null;
+      order.providerRemark = result.remark ?? result.status ?? null;
+      await this.orderRepo.save(order);
+
+      this.logger.log(
+        `Order ${order.id} ${order.status}: ${order.providerRemark}`,
+      );
+    } catch (err) {
+      order.status = 'failed';
+      order.providerRemark =
+        err instanceof Error ? err.message : 'Unknown error';
+      await this.orderRepo.save(order);
+      this.logger.error(`Order ${order.id} fulfillment failed`, err);
+    }
+  }
+
+  /** Called by the blockchain event listener */
+  async fulfillFromChainEvent(event: {
+    orderId: bigint;
+    txHash: string;
+    chainId: number;
+  }): Promise<void> {
+    const chainOrderId = event.orderId.toString();
+
+    // Try to find by txHash first (registered before event arrived)
+    const order = await this.orderRepo.findOne({
+      where: { txHash: event.txHash },
+    });
+
+    if (order) {
+      order.chainOrderId = chainOrderId;
+      await this.orderRepo.save(order);
+      await this.fulfillOrder(order);
+    } else {
+      this.logger.warn(
+        `BillPaymentInitiated event for orderId=${chainOrderId} has no matching registered order yet`,
+      );
+    }
+  }
+
+  async getOrder(id: string): Promise<AirtimeOrderEntity> {
+    const order = await this.orderRepo.findOne({ where: { id } });
+    if (!order) throw new NotFoundException(`Order ${id} not found`);
+    return order;
   }
 
   // ─── Nellobytesystems API ─────────────────────────────────────────────────
 
-  /** Buy airtime via nellobytesystems API */
   async buyAirtime(dto: BuyAirtimeDto): Promise<NelloResponse> {
     const userId = this.config.get<string>('nello.userId') ?? '';
     const apiKey = this.config.get<string>('nello.apiKey') ?? '';
@@ -75,20 +196,18 @@ export class AirtimeService {
 
     const url = `${this.baseUrl}/APIAirtimeV1.asp?${params.toString()}`;
     this.logger.log(
-      `Buying airtime → ${dto.phoneNumber} | network=${dto.networkCode} | amount=${dto.amount}`,
+      `Buying airtime → ${dto.phoneNumber} | network=${dto.networkCode} | amount=₦${dto.amount}`,
     );
 
     const response = await this.callNello<NelloResponse>(url);
-    this.logger.log(`Airtime response: ${JSON.stringify(response)}`);
+    this.logger.log(`Nello response: ${JSON.stringify(response)}`);
     return response;
   }
 
-  /** Query a transaction by orderId or requestId */
   async queryTransaction(dto: QueryAirtimeDto): Promise<NelloResponse> {
     if (!dto.orderId && !dto.requestId) {
       throw new BadRequestException('Provide either orderId or requestId');
     }
-
     const userId = this.config.get<string>('nello.userId') ?? '';
     const apiKey = this.config.get<string>('nello.apiKey') ?? '';
 
@@ -96,11 +215,11 @@ export class AirtimeService {
     if (dto.orderId) params.set('OrderID', dto.orderId);
     else params.set('RequestID', dto.requestId!);
 
-    const url = `${this.baseUrl}/APIQueryV1.asp?${params.toString()}`;
-    return this.callNello<NelloResponse>(url);
+    return this.callNello<NelloResponse>(
+      `${this.baseUrl}/APIQueryV1.asp?${params.toString()}`,
+    );
   }
 
-  /** Cancel a transaction by orderId */
   async cancelTransaction(dto: CancelAirtimeDto): Promise<NelloResponse> {
     const userId = this.config.get<string>('nello.userId') ?? '';
     const apiKey = this.config.get<string>('nello.apiKey') ?? '';
@@ -111,51 +230,16 @@ export class AirtimeService {
       OrderID: dto.orderId,
     });
 
-    const url = `${this.baseUrl}/APICancelV1.asp?${params.toString()}`;
-    return this.callNello<NelloResponse>(url);
+    return this.callNello<NelloResponse>(
+      `${this.baseUrl}/APICancelV1.asp?${params.toString()}`,
+    );
   }
 
-  /** Fetch available networks and discount rates */
   async getNetworks(): Promise<NelloResponse> {
     const userId = this.config.get<string>('nello.userId') ?? '';
-    const url = `${this.baseUrl}/APIAirtimeDiscountV2.asp?UserID=${userId}`;
-    return this.callNello<NelloResponse>(url);
-  }
-
-  // ─── On-chain event fulfillment ───────────────────────────────────────────
-
-  /**
-   * Called by the blockchain listener when a BillPaymentInitiated event
-   * is emitted with serviceType = "airtime".
-   */
-  async fulfillFromChainEvent(event: {
-    orderId: bigint;
-    networkCode: string;
-    phoneNumber: string;
-    amountNgn: number;
-  }): Promise<void> {
-    this.logger.log(
-      `Fulfilling on-chain airtime order #${event.orderId} → ${event.phoneNumber}`,
+    return this.callNello<NelloResponse>(
+      `${this.baseUrl}/APIAirtimeDiscountV2.asp?UserID=${userId}`,
     );
-
-    try {
-      const result = await this.buyAirtime({
-        networkCode: event.networkCode as any,
-        amount: event.amountNgn,
-        phoneNumber: event.phoneNumber,
-        requestId: `chain-${event.orderId.toString()}`,
-      });
-
-      if (result.statuscode === '100' || result.statuscode === '200') {
-        this.logger.log(`Order #${event.orderId} fulfilled: ${result.status}`);
-      } else {
-        this.logger.error(
-          `Order #${event.orderId} failed: ${result.status} — ${result.remark}`,
-        );
-      }
-    } catch (err) {
-      this.logger.error(`Failed to fulfill order #${event.orderId}`, err);
-    }
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
@@ -164,8 +248,9 @@ export class AirtimeService {
     try {
       const { data } = await firstValueFrom(this.http.get<T>(url));
       return data;
-    } catch (err: any) {
-      this.logger.error(`Nello API error: ${err?.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Nello API error: ${msg}`);
       throw new InternalServerErrorException('Airtime provider request failed');
     }
   }

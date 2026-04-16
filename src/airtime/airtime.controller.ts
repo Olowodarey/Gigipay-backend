@@ -4,6 +4,7 @@ import {
   Get,
   Body,
   Query,
+  Param,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
   CancelAirtimeDto,
   NelloResponse,
 } from './dto/airtime.dto';
+import { RegisterAirtimeOrderDto } from './dto/register-order.dto';
 
 @ApiTags('airtime')
 @Controller('airtime')
@@ -28,6 +30,23 @@ export class AirtimeController {
   @ApiOperation({ summary: 'Build payBill transaction for frontend to sign' })
   buildPayBill(@Body() dto: BuildAirtimePayBillDto) {
     return this.service.buildPayBillTx(dto);
+  }
+
+  // ─── Order lifecycle ──────────────────────────────────────────────────────
+
+  @Post('orders/register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register an airtime order after tx is confirmed on-chain',
+  })
+  registerOrder(@Body() dto: RegisterAirtimeOrderDto) {
+    return this.service.registerOrder(dto);
+  }
+
+  @Get('orders/:id')
+  @ApiOperation({ summary: 'Get airtime order status by internal ID' })
+  getOrder(@Param('id') id: string) {
+    return this.service.getOrder(id);
   }
 
   // ─── Nellobytesystems API ─────────────────────────────────────────────────
@@ -64,7 +83,6 @@ export class AirtimeController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Nellobytesystems callback endpoint (GET)' })
   handleCallback(@Query() payload: Record<string, string>) {
-    // nellobytesystems sends GET with query params — just acknowledge
     return { received: true, payload };
   }
 }

@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { AirtimeModule } from './airtime/airtime.module';
 import { RatesModule } from './rates/rates.module';
 import { UserEntity } from './users/user.entity';
+import { AirtimeOrderEntity } from './airtime/airtime-order.entity';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { UserEntity } from './users/user.entity';
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
         url: config.get<string>('DATABASE_URL'),
-        entities: [UserEntity],
+        entities: [UserEntity, AirtimeOrderEntity],
         synchronize: config.get('nodeEnv') !== 'production',
         logging: config.get('nodeEnv') === 'development',
       }),
