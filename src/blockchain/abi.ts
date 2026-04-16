@@ -172,6 +172,20 @@ export const GIGIPAY_ABI = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: 'address', name: 'to', type: 'address' },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+    ],
+    name: 'NativeRecovered',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
       { indexed: true, internalType: 'bytes32', name: 'role', type: 'bytes32' },
       {
         indexed: true,
