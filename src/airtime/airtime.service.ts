@@ -125,6 +125,8 @@ export class AirtimeService {
         requestId: `order-${order.id}`,
       });
 
+      this.logger.debug(`Nello API full response: ${JSON.stringify(result)}`);
+
       const success =
         result.statuscode === '100' || result.statuscode === '200';
 
@@ -134,14 +136,17 @@ export class AirtimeService {
       await this.orderRepo.save(order);
 
       this.logger.log(
-        `Order ${order.id} ${order.status}: ${order.providerRemark}`,
+        `Order ${order.id} ${order.status}: statuscode=${result.statuscode} remark=${order.providerRemark}`,
       );
     } catch (err) {
       order.status = 'failed';
       order.providerRemark =
         err instanceof Error ? err.message : 'Unknown error';
       await this.orderRepo.save(order);
-      this.logger.error(`Order ${order.id} fulfillment failed`, err);
+      this.logger.error(
+        `Order ${order.id} fulfillment failed: ${order.providerRemark}`,
+        err instanceof Error ? err.stack : '',
+      );
     }
   }
 
