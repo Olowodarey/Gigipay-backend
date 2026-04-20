@@ -84,10 +84,9 @@ export class AirtimeService {
       `Order registered: id=${saved.id} phone=${dto.phoneNumber} amount=₦${dto.amountNgn}`,
     );
 
-    // If chainOrderId already known, fulfill immediately
-    if (dto.chainOrderId) {
-      void this.fulfillOrder(saved);
-    }
+    // Always attempt fulfillment — the chain event may have already fired
+    // before registration, so we fulfill immediately on register too.
+    void this.fulfillOrder(saved);
 
     return saved;
   }
