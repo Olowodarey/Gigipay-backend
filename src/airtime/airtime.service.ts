@@ -36,7 +36,17 @@ export class AirtimeService {
     private readonly blockchain: BlockchainService,
     @InjectRepository(AirtimeOrderEntity)
     private readonly orderRepo: Repository<AirtimeOrderEntity>,
-  ) {}
+  ) {
+    const userId = this.config.get<string>('nello.userId');
+    const apiKey = this.config.get<string>('nello.apiKey');
+    if (!userId || !apiKey) {
+      this.logger.warn(
+        'NELLO_USER_ID or NELLO_API_KEY is not set — airtime fulfillment will be disabled',
+      );
+    } else {
+      this.logger.log(`Nello API configured for userId=${userId}`);
+    }
+  }
 
   // ─── Tx Builder ──────────────────────────────────────────────────────────
 
@@ -68,6 +78,17 @@ export class AirtimeService {
       encodePacked(['string'], [dto.phoneNumber]),
     );
 
+    // Check for duplicate txHash — idempotent re-registration
+    const existing = await this.orderRepo.findOne({
+      where: { txHash: dto.txHash },
+    });
+    if (existing) {
+      this.logger.warn(
+        `Duplicate registration for txHash=${dto.txHash}, returning existing order id=${existing.id}`,
+      );
+      return existing;
+    }
+
     const order = this.orderRepo.create({
       chainId: dto.chainId,
       chainOrderId: dto.chainOrderId ?? null,
@@ -83,6 +104,19 @@ export class AirtimeService {
     this.logger.log(
       `Order registered: id=${saved.id} phone=${dto.phoneNumber} amount=₦${dto.amountNgn}`,
     );
+
+    // Validate Nello credentials before attempting fulfillment
+    const nelloUserId = this.config.get<string>('nello.userId');
+    const nelloApiKey = this.config.get<string>('nello.apiKey');
+    if (!nelloUserId || !nelloApiKey) {
+      this.logger.error(
+        'NELLO_USER_ID or NELLO_API_KEY is not configured — skipping fulfillment',
+      );
+      saved.status = 'failed';
+      saved.providerRemark = 'Airtime provider credentials not configured';
+      await this.orderRepo.save(saved);
+      return saved;
+    }
 
     // Always attempt fulfillment — the chain event may have already fired
     // before registration, so we fulfill immediately on register too.

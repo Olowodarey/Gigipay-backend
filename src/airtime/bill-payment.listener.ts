@@ -4,18 +4,29 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { parseAbiItem } from 'viem';
 import { celo, base } from 'viem/chains';
 import {
   BlockchainService,
   CONTRACT_ADDRESSES,
 } from '../blockchain/blockchain.service';
 import { AirtimeService } from './airtime.service';
-import { GIGIPAY_ABI } from '../blockchain/abi';
+
+/**
+ * Max blocks to scan per poll per chain.
+ * Ankr free tier allows ~2000 blocks per eth_getLogs call.
+ * Celo: ~5s/block → 2000 blocks ≈ 2.8 hours of history per poll.
+ * Base: ~2s/block → 2000 blocks ≈ 1.1 hours of history per poll.
+ */
+const MAX_BLOCK_RANGE = 1999n;
+
+/** How often to poll for new events (ms) */
+const POLL_INTERVAL_MS = 5_000;
 
 @Injectable()
 export class BillPaymentListener implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BillPaymentListener.name);
-  private unwatchers: Array<() => void> = [];
+  private timers: NodeJS.Timeout[] = [];
 
   constructor(
     private readonly blockchain: BlockchainService,
@@ -23,67 +34,96 @@ export class BillPaymentListener implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    this.startListening(celo.id);
-    this.startListening(base.id);
+    void this.startPolling(celo.id);
+    void this.startPolling(base.id);
   }
 
   onModuleDestroy() {
-    this.unwatchers.forEach((fn) => fn());
-    this.unwatchers = [];
+    this.timers.forEach((t) => clearInterval(t));
+    this.timers = [];
     this.logger.log('Bill payment listeners stopped');
   }
 
-  private startListening(chainId: number) {
+  private async startPolling(chainId: number) {
     const address = CONTRACT_ADDRESSES[chainId];
     if (!address) return;
 
     const client = this.blockchain.getPublicClient(chainId);
 
-    const unwatch = client.watchContractEvent({
-      address,
-      abi: GIGIPAY_ABI,
-      eventName: 'BillPaymentInitiated',
-      onLogs: (logs) => {
+    // Start from the current block so we don't scan chain history
+    let lastBlock: bigint;
+    try {
+      lastBlock = await client.getBlockNumber();
+    } catch (err) {
+      this.logger.error(
+        `Failed to get block number for chain ${chainId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      // Retry after a delay
+      const t = setTimeout(() => void this.startPolling(chainId), 10_000);
+      this.timers.push(t as unknown as NodeJS.Timeout);
+      return;
+    }
+
+    this.logger.log(
+      `Polling BillPaymentInitiated on chain ${chainId} at ${address} from block ${lastBlock}`,
+    );
+
+    const poll = async () => {
+      try {
+        const currentBlock = await client.getBlockNumber();
+        if (currentBlock <= lastBlock) return;
+
+        // Cap the range to avoid "block range too large" errors
+        const fromBlock = lastBlock + 1n;
+        const toBlock =
+          currentBlock - fromBlock > MAX_BLOCK_RANGE
+            ? fromBlock + MAX_BLOCK_RANGE
+            : currentBlock;
+
+        const logs = await client.getLogs({
+          address,
+          event: parseAbiItem(
+            'event BillPaymentInitiated(uint256 indexed orderId, address indexed buyer, address token, uint256 amount, string serviceType, string serviceId, bytes32 recipientHash)',
+          ),
+          fromBlock,
+          toBlock,
+        });
+
         for (const log of logs) {
-          const args = log.args as {
+          const { orderId, serviceType } = log.args as {
             orderId?: bigint;
-            buyer?: `0x${string}`;
             serviceType?: string;
-            serviceId?: string;
-            recipientHash?: `0x${string}`;
           };
-          void this.handleEvent(chainId, args, log.transactionHash ?? null);
+          const txHash = log.transactionHash ?? null;
+
+          if (!orderId || !serviceType || !txHash) continue;
+
+          this.logger.log(
+            `BillPaymentInitiated: chain=${chainId} orderId=${orderId} serviceType=${serviceType} tx=${txHash}`,
+          );
+
+          if (serviceType === 'airtime') {
+            await this.airtime.fulfillFromChainEvent({
+              orderId,
+              txHash,
+              chainId,
+            });
+          }
         }
-      },
-      onError: (err) => {
-        this.logger.error(`Listener error on chain ${chainId}: ${err.message}`);
-      },
-    });
 
-    this.unwatchers.push(unwatch);
-    this.logger.log(
-      `Listening for BillPaymentInitiated on chain ${chainId} at ${address}`,
-    );
-  }
+        // Advance cursor — if we capped the range, next poll picks up from toBlock
+        lastBlock = toBlock;
+      } catch (err) {
+        // Log but don't crash — next interval will retry
+        this.logger.error(
+          `Poll error on chain ${chainId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    };
 
-  private async handleEvent(
-    chainId: number,
-    args: {
-      orderId?: bigint;
-      serviceType?: string;
-      serviceId?: string;
-    },
-    txHash: string | null,
-  ) {
-    const { orderId, serviceType } = args;
-    if (!orderId || !serviceType || !txHash) return;
-
-    this.logger.log(
-      `BillPaymentInitiated: chain=${chainId} orderId=${orderId} serviceType=${serviceType} tx=${txHash}`,
-    );
-
-    if (serviceType !== 'airtime') return;
-
-    await this.airtime.fulfillFromChainEvent({ orderId, txHash, chainId });
+    // Run immediately then on interval
+    void poll();
+    const timer = setInterval(() => void poll(), POLL_INTERVAL_MS);
+    this.timers.push(timer);
   }
 }
