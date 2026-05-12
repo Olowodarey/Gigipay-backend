@@ -1,611 +1,1309 @@
 export const GIGIPAY_ABI = [
-  { inputs: [], stateMutability: 'nonpayable', type: 'constructor' },
-
-  // ─── Errors ───────────────────────────────────────────────────────────────
-  { inputs: [], name: 'AccessControlBadConfirmation', type: 'error' },
   {
-    inputs: [
-      { internalType: 'address', name: 'account', type: 'address' },
-      { internalType: 'bytes32', name: 'neededRole', type: 'bytes32' },
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "receive",
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "DEFAULT_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    name: 'AccessControlUnauthorizedAccount',
-    type: 'error',
+    "stateMutability": "view"
   },
-  { inputs: [], name: 'BatchTooLarge', type: 'error' },
-  { inputs: [], name: 'DuplicateClaimCode', type: 'error' },
-  { inputs: [], name: 'EmptyArray', type: 'error' },
-  { inputs: [], name: 'EnforcedPause', type: 'error' },
-  { inputs: [], name: 'ExpectedPause', type: 'error' },
-  { inputs: [], name: 'IncorrectNativeAmount', type: 'error' },
-  { inputs: [], name: 'InsufficientAllowance', type: 'error' },
-  { inputs: [], name: 'InsufficientContractBalance', type: 'error' },
-  { inputs: [], name: 'InvalidAmount', type: 'error' },
-  { inputs: [], name: 'InvalidClaimCode', type: 'error' },
-  { inputs: [], name: 'InvalidExpirationTime', type: 'error' },
-  { inputs: [], name: 'InvalidInitialization', type: 'error' },
-  { inputs: [], name: 'InvalidRecipient', type: 'error' },
-  { inputs: [], name: 'InvalidRecipientHash', type: 'error' },
-  { inputs: [], name: 'InvalidServiceId', type: 'error' },
-  { inputs: [], name: 'InvalidServiceType', type: 'error' },
-  { inputs: [], name: 'LengthMismatch', type: 'error' },
-  { inputs: [], name: 'NotInitializing', type: 'error' },
-  { inputs: [], name: 'ReentrantCall', type: 'error' },
   {
-    inputs: [{ internalType: 'address', name: 'token', type: 'address' }],
-    name: 'SafeERC20FailedOperation',
-    type: 'error',
-  },
-  { inputs: [], name: 'TransferFailed', type: 'error' },
-  { inputs: [], name: 'VoucherAlreadyClaimed', type: 'error' },
-  { inputs: [], name: 'VoucherAlreadyRefunded', type: 'error' },
-  { inputs: [], name: 'VoucherExpired', type: 'error' },
-  { inputs: [], name: 'VoucherNotExpired', type: 'error' },
-  { inputs: [], name: 'VoucherNotFound', type: 'error' },
-
-  // ─── Events ───────────────────────────────────────────────────────────────
-  {
-    anonymous: false,
-    inputs: [
+    "type": "function",
+    "name": "MAX_BATCH_SIZE",
+    "inputs": [],
+    "outputs": [
       {
-        indexed: true,
-        internalType: 'address',
-        name: 'sender',
-        type: 'address',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'token',
-        type: 'address',
-      },
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'totalAmount',
-        type: 'uint256',
-      },
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'recipientCount',
-        type: 'uint256',
-      },
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    name: 'BatchTransferCompleted',
-    type: 'event',
+    "stateMutability": "view"
   },
   {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'to', type: 'address' },
+    "type": "function",
+    "name": "PAUSER_ROLE",
+    "inputs": [],
+    "outputs": [
       {
-        indexed: true,
-        internalType: 'address',
-        name: 'token',
-        type: 'address',
-      },
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
-      },
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    name: 'BillFundsWithdrawn',
-    type: 'event',
+    "stateMutability": "view"
   },
   {
-    anonymous: false,
-    inputs: [
+    "type": "function",
+    "name": "UPGRADE_INTERFACE_VERSION",
+    "inputs": [],
+    "outputs": [
       {
-        indexed: true,
-        internalType: 'uint256',
-        name: 'orderId',
-        type: 'uint256',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'buyer',
-        type: 'address',
-      },
-      {
-        indexed: false,
-        internalType: 'address',
-        name: 'token',
-        type: 'address',
-      },
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
-      },
-      {
-        indexed: false,
-        internalType: 'string',
-        name: 'serviceType',
-        type: 'string',
-      },
-      {
-        indexed: false,
-        internalType: 'string',
-        name: 'serviceId',
-        type: 'string',
-      },
-      {
-        indexed: false,
-        internalType: 'bytes32',
-        name: 'recipientHash',
-        type: 'bytes32',
-      },
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    name: 'BillPaymentInitiated',
-    type: 'event',
+    "stateMutability": "view"
   },
   {
-    anonymous: false,
-    inputs: [
+    "type": "function",
+    "name": "WITHDRAWER_ROLE",
+    "inputs": [],
+    "outputs": [
       {
-        indexed: false,
-        internalType: 'uint64',
-        name: 'version',
-        type: 'uint64',
-      },
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    name: 'Initialized',
-    type: 'event',
+    "stateMutability": "view"
   },
   {
-    anonymous: false,
-    inputs: [
+    "type": "function",
+    "name": "batchTransfer",
+    "inputs": [
       {
-        indexed: false,
-        internalType: 'address',
-        name: 'account',
-        type: 'address',
-      },
-    ],
-    name: 'Paused',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'address', name: 'to', type: 'address' },
-      {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
-      },
-    ],
-    name: 'NativeRecovered',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'bytes32', name: 'role', type: 'bytes32' },
-      {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'previousAdminRole',
-        type: 'bytes32',
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        indexed: true,
-        internalType: 'bytes32',
-        name: 'newAdminRole',
-        type: 'bytes32',
-      },
-    ],
-    name: 'RoleAdminChanged',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'bytes32', name: 'role', type: 'bytes32' },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'account',
-        type: 'address',
+        "name": "recipients",
+        "type": "address[]",
+        "internalType": "address[]"
       },
       {
-        indexed: true,
-        internalType: 'address',
-        name: 'sender',
-        type: 'address',
-      },
+        "name": "amounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
     ],
-    name: 'RoleGranted',
-    type: 'event',
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: 'bytes32', name: 'role', type: 'bytes32' },
+    "type": "function",
+    "name": "claimHashToVoucherId",
+    "inputs": [
       {
-        indexed: true,
-        internalType: 'address',
-        name: 'account',
-        type: 'address',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'sender',
-        type: 'address',
-      },
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    name: 'RoleRevoked',
-    type: 'event',
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
-    anonymous: false,
-    inputs: [
+    "type": "function",
+    "name": "claimVoucher",
+    "inputs": [
       {
-        indexed: false,
-        internalType: 'address',
-        name: 'account',
-        type: 'address',
-      },
+        "name": "claimCodeHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    name: 'Unpaused',
-    type: 'event',
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    anonymous: false,
-    inputs: [
+    "type": "function",
+    "name": "createVoucherBatch",
+    "inputs": [
       {
-        indexed: true,
-        internalType: 'uint256',
-        name: 'voucherId',
-        type: 'uint256',
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
       },
       {
-        indexed: true,
-        internalType: 'address',
-        name: 'claimer',
-        type: 'address',
+        "name": "voucherName",
+        "type": "string",
+        "internalType": "string"
       },
       {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
-      },
-    ],
-    name: 'VoucherClaimed',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'uint256',
-        name: 'voucherId',
-        type: 'uint256',
+        "name": "claimCodeHashes",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
       },
       {
-        indexed: true,
-        internalType: 'address',
-        name: 'sender',
-        type: 'address',
+        "name": "amounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       },
       {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
+        "name": "expirationTimes",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "getAvailableBillFunds",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRoleAdmin",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSenderVouchers",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getVouchersByName",
+    "inputs": [
+      {
+        "name": "voucherName",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "grantRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'expiresAt',
-        type: 'uint256',
-      },
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    name: 'VoucherCreated',
-    type: 'event',
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    anonymous: false,
-    inputs: [
+    "type": "function",
+    "name": "hasRole",
+    "inputs": [
       {
-        indexed: true,
-        internalType: 'uint256',
-        name: 'voucherId',
-        type: 'uint256',
-      },
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'sender',
-        type: 'address',
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
-        indexed: false,
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [
+      {
+        "name": "defaultAdmin",
+        "type": "address",
+        "internalType": "address"
       },
+      {
+        "name": "pauser",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    name: 'VoucherRefunded',
-    type: 'event',
-  },
-
-  // ─── Functions ────────────────────────────────────────────────────────────
-  {
-    inputs: [],
-    name: 'DEFAULT_ADMIN_ROLE',
-    outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    stateMutability: 'view',
-    type: 'function',
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    inputs: [],
-    name: 'MAX_BATCH_SIZE',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'PAUSER_ROLE',
-    outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'WITHDRAWER_ROLE',
-    outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'address[]', name: 'recipients', type: 'address[]' },
-      { internalType: 'uint256[]', name: 'amounts', type: 'uint256[]' },
+    "type": "function",
+    "name": "isVoucherClaimable",
+    "inputs": [
+      {
+        "name": "voucherId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    name: 'batchTransfer',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    // claimVoucher now takes only the combined hash (voucherName + claimCode hashed client-side)
-    inputs: [
-      { internalType: 'bytes32', name: 'claimCodeHash', type: 'bytes32' },
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    name: 'claimVoucher',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
+    "stateMutability": "view"
   },
   {
-    // createVoucherBatch now takes bytes32[] hashes (not string[] codes)
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'string', name: 'voucherName', type: 'string' },
-      { internalType: 'bytes32[]', name: 'claimCodeHashes', type: 'bytes32[]' },
-      { internalType: 'uint256[]', name: 'amounts', type: 'uint256[]' },
-      { internalType: 'uint256[]', name: 'expirationTimes', type: 'uint256[]' },
+    "type": "function",
+    "name": "isVoucherRefundable",
+    "inputs": [
+      {
+        "name": "voucherId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    name: 'createVoucherBatch',
-    outputs: [{ internalType: 'uint256[]', name: '', type: 'uint256[]' }],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'bytes32', name: 'role', type: 'bytes32' }],
-    name: 'getRoleAdmin',
-    outputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'address', name: 'sender', type: 'address' }],
-    name: 'getSenderVouchers',
-    outputs: [{ internalType: 'uint256[]', name: '', type: 'uint256[]' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'string', name: 'voucherName', type: 'string' }],
-    name: 'getVouchersByName',
-    outputs: [{ internalType: 'uint256[]', name: '', type: 'uint256[]' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
-      { internalType: 'address', name: 'account', type: 'address' },
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    name: 'grantRole',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
+    "stateMutability": "view"
   },
   {
-    inputs: [
-      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
-      { internalType: 'address', name: 'account', type: 'address' },
+    "type": "function",
+    "name": "lockedVoucherFunds",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
     ],
-    name: 'hasRole',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { internalType: 'address', name: 'defaultAdmin', type: 'address' },
-      { internalType: 'address', name: 'pauser', type: 'address' },
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    name: 'initialize',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
+    "stateMutability": "view"
   },
   {
-    inputs: [{ internalType: 'uint256', name: 'voucherId', type: 'uint256' }],
-    name: 'isVoucherClaimable',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    inputs: [{ internalType: 'uint256', name: 'voucherId', type: 'uint256' }],
-    name: 'isVoucherRefundable',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'pause',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'paused',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' },
-      { internalType: 'string', name: 'serviceType', type: 'string' },
-      { internalType: 'string', name: 'serviceId', type: 'string' },
-      { internalType: 'bytes32', name: 'recipientHash', type: 'bytes32' },
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
     ],
-    name: 'payBill',
-    outputs: [{ internalType: 'uint256', name: 'orderId', type: 'uint256' }],
-    stateMutability: 'payable',
-    type: 'function',
+    "stateMutability": "view"
   },
   {
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'address', name: 'to', type: 'address' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    "type": "function",
+    "name": "payBill",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "serviceType",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "serviceId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "recipientHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    name: 'recoverNative',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'string', name: 'voucherName', type: 'string' }],
-    name: 'refundVouchersByName',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
-      { internalType: 'address', name: 'callerConfirmation', type: 'address' },
+    "outputs": [
+      {
+        "name": "orderId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    name: 'renounceRole',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
+    "stateMutability": "payable"
   },
   {
-    inputs: [
-      { internalType: 'bytes32', name: 'role', type: 'bytes32' },
-      { internalType: 'address', name: 'account', type: 'address' },
+    "type": "function",
+    "name": "payBillBatch",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      },
+      {
+        "name": "serviceType",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "serviceId",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "recipientHashes",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
     ],
-    name: 'revokeRole',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'bytes4', name: 'interfaceId', type: 'bytes4' }],
-    name: 'supportsInterface',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'unpause',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    name: 'claimHashToVoucherId',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ internalType: 'bytes32', name: '', type: 'bytes32' }],
-    name: 'voucherNameExists',
-    outputs: [{ internalType: 'bool', name: '', type: 'bool' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { internalType: 'bytes32', name: '', type: 'bytes32' },
-      { internalType: 'uint256', name: '', type: 'uint256' },
+    "outputs": [
+      {
+        "name": "orderIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
     ],
-    name: 'voucherNameToIds',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
+    "stateMutability": "payable"
   },
   {
-    inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    name: 'vouchers',
-    outputs: [
-      { internalType: 'address', name: 'sender', type: 'address' },
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' },
-      { internalType: 'bytes32', name: 'claimCodeHash', type: 'bytes32' },
-      { internalType: 'uint256', name: 'expiresAt', type: 'uint256' },
-      { internalType: 'bool', name: 'claimed', type: 'bool' },
-      { internalType: 'bool', name: 'refunded', type: 'bool' },
-      { internalType: 'string', name: 'voucherName', type: 'string' },
+    "type": "function",
+    "name": "proxiableUUID",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
     ],
-    stateMutability: 'view',
-    type: 'function',
+    "stateMutability": "view"
   },
   {
-    inputs: [
-      { internalType: 'address', name: 'token', type: 'address' },
-      { internalType: 'address', name: 'to', type: 'address' },
-      { internalType: 'uint256', name: 'amount', type: 'uint256' },
+    "type": "function",
+    "name": "recoverNative",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
     ],
-    name: 'withdrawBillFunds',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
-    inputs: [
-      { internalType: 'address', name: '', type: 'address' },
-      { internalType: 'uint256', name: '', type: 'uint256' },
+    "type": "function",
+    "name": "refundVouchersByName",
+    "inputs": [
+      {
+        "name": "voucherName",
+        "type": "string",
+        "internalType": "string"
+      }
     ],
-    name: 'senderVouchers',
-    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
-  { stateMutability: 'payable', type: 'receive' },
+  {
+    "type": "function",
+    "name": "renounceRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "callerConfirmation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "senderVouchers",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upgradeToAndCall",
+    "inputs": [
+      {
+        "name": "newImplementation",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "voucherNameExists",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "voucherNameToIds",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "vouchers",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimCodeHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimed",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "refunded",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "voucherName",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdrawBillFunds",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "BatchBillPaymentCompleted",
+    "inputs": [
+      {
+        "name": "buyer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "serviceType",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "recipientCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BatchTransferCompleted",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "totalAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipientCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BillFundsWithdrawn",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BillPaymentInitiated",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "buyer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "serviceType",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "serviceId",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "recipientHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NativeRecovered",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleAdminChanged",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleGranted",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleRevoked",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Upgraded",
+    "inputs": [
+      {
+        "name": "implementation",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VoucherClaimed",
+    "inputs": [
+      {
+        "name": "voucherId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "claimer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VoucherCreated",
+    "inputs": [
+      {
+        "name": "voucherId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VoucherRefunded",
+    "inputs": [
+      {
+        "name": "voucherId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccessControlBadConfirmation",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AccessControlUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "neededRole",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AddressEmptyCode",
+    "inputs": [
+      {
+        "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BatchTooLarge",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DuplicateClaimCode",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ERC1967InvalidImplementation",
+    "inputs": [
+      {
+        "name": "implementation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ERC1967NonPayable",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmptyArray",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EnforcedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ExpectedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FailedCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IncorrectNativeAmount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientAllowance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsufficientContractBalance",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAmount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidClaimCode",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidExpirationTime",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRecipient",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidRecipientHash",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidServiceId",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidServiceType",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LengthMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UUPSUnauthorizedCallContext",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UUPSUnsupportedProxiableUUID",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "VoucherAlreadyClaimed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VoucherAlreadyRefunded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VoucherExpired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VoucherNotExpired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VoucherNotFound",
+    "inputs": []
+  }
 ] as const;
