@@ -5,7 +5,7 @@ import { celo, base } from 'viem/chains';
 import { GIGIPAY_ABI } from './abi';
 
 export const CONTRACT_ADDRESSES: Record<number, Address> = {
-  [celo.id]: '0x88D7034cc9409f78F6B00D34FeA5B0941FbeC69b', // Celo mainnet
+  [celo.id]: '0x4e83B060F788413e97ad0Dd5FC9FC8781CC95cDc', // Celo mainnet - Gigipay v2.0 (UUPS + Batch Payments)
   [base.id]: '0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6', // Base mainnet
 };
 

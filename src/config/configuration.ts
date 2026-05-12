@@ -17,7 +17,7 @@ export default () => ({
   celo: {
     rpcUrl: process.env.CELO_RPC_URL || 'https://rpc.ankr.com/celo',
     chainId: 42220,
-    contractAddress: '0x70b92a67F391F674aFFfCE3Dd7EB3d99e1f1E9a8',
+    contractAddress: '0x4e83B060F788413e97ad0Dd5FC9FC8781CC95cDc', // Gigipay v2.0 (UUPS + Batch Payments)
   },
 
   base: {
