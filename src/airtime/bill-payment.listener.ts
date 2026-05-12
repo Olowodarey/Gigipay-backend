@@ -104,6 +104,42 @@ export class BillPaymentListener implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Listening for BillPaymentInitiated on chain ${chainId} at ${address} (poll=${config.poll})`,
     );
+
+    // Also listen for batch events for logging/monitoring
+    const unwatchBatch = client.watchContractEvent({
+      address,
+      abi: GIGIPAY_ABI,
+      eventName: 'BatchBillPaymentCompleted',
+      fromBlock,
+      poll: config.poll,
+      pollingInterval: config.pollingInterval,
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const args = log.args as {
+            buyer?: `0x${string}`;
+            token?: `0x${string}`;
+            totalAmount?: bigint;
+            serviceType?: string;
+            recipientCount?: bigint;
+          };
+          this.logger.log(
+            `BatchBillPaymentCompleted: chain=${chainId} buyer=${args.buyer} ` +
+              `serviceType=${args.serviceType} recipients=${args.recipientCount} ` +
+              `totalAmount=${args.totalAmount} tx=${log.transactionHash}`,
+          );
+        }
+      },
+      onError: (err) => {
+        this.logger.error(
+          `Batch listener error on chain ${chainId}: ${err.message}`,
+        );
+      },
+    });
+
+    this.unwatchers.push(unwatchBatch);
+    this.logger.log(
+      `Listening for BatchBillPaymentCompleted on chain ${chainId} at ${address} (poll=${config.poll})`,
+    );
   }
 
   private async handleEvent(
