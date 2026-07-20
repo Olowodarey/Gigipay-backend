@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { AirtimeModule } from './airtime/airtime.module';
 import { RatesModule } from './rates/rates.module';
 import { BillsModule } from './bills/bills.module';
+import { AgentModule } from './agent/agent.module';
 import { UserEntity } from './users/user.entity';
 import { AirtimeOrderEntity } from './airtime/airtime-order.entity';
 
@@ -43,6 +44,7 @@ import { AirtimeOrderEntity } from './airtime/airtime-order.entity';
     AirtimeModule,
     RatesModule,
     BillsModule,
+    AgentModule,
   ],
 })
 export class AppModule {}

@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createPublicClient, http, type Address, erc20Abi } from 'viem';
-import { celo, base } from 'viem/chains';
+import { celo, celoSepolia, base } from 'viem/chains';
 import { GIGIPAY_ABI } from './abi';
 
 export const CONTRACT_ADDRESSES: Record<number, Address> = {
@@ -9,14 +9,23 @@ export const CONTRACT_ADDRESSES: Record<number, Address> = {
   [base.id]: '0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6', // Base mainnet
 };
 
+// Celo Sepolia (testnet) — populated from env once a testnet contract is deployed.
+if (process.env.CONTRACT_ADDRESS_CELO_SEPOLIA) {
+  CONTRACT_ADDRESSES[celoSepolia.id] = process.env
+    .CONTRACT_ADDRESS_CELO_SEPOLIA as Address;
+}
+
 // Use ReturnType so each client keeps its chain-specific types
 type CeloClient = ReturnType<
   typeof createPublicClient<ReturnType<typeof http>, typeof celo>
 >;
+type CeloSepoliaClient = ReturnType<
+  typeof createPublicClient<ReturnType<typeof http>, typeof celoSepolia>
+>;
 type BaseClient = ReturnType<
   typeof createPublicClient<ReturnType<typeof http>, typeof base>
 >;
-type AnyClient = CeloClient | BaseClient;
+type AnyClient = CeloClient | CeloSepoliaClient | BaseClient;
 
 @Injectable()
 export class BlockchainService implements OnModuleInit {
@@ -40,7 +49,18 @@ export class BlockchainService implements OnModuleInit {
         transport: http(this.config.get<string>('base.rpcUrl')),
       }),
     );
-    this.logger.log('Blockchain clients initialized for Celo and Base');
+    // Celo Sepolia testnet — always available for reads/agent dev, even before
+    // a testnet contract is deployed (contract-address lookups gate separately).
+    this.publicClients.set(
+      celoSepolia.id,
+      createPublicClient({
+        chain: celoSepolia,
+        transport: http(this.config.get<string>('celoSepolia.rpcUrl')),
+      }),
+    );
+    this.logger.log(
+      'Blockchain clients initialized for Celo, Base and Celo Sepolia',
+    );
   }
 
   getPublicClient(chainId: number): AnyClient {

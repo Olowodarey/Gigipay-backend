@@ -20,10 +20,30 @@ export default () => ({
     contractAddress: '0x4e83B060F788413e97ad0Dd5FC9FC8781CC95cDc', // Gigipay v2.0 (UUPS + Batch Payments)
   },
 
+  // Celo Sepolia testnet — build & test the AI agent here first (mainnet is real money).
+  // No contract deployed yet: set CONTRACT_ADDRESS_CELO_SEPOLIA once you deploy.
+  celoSepolia: {
+    rpcUrl:
+      process.env.CELO_SEPOLIA_RPC_URL || 'https://forno.celo-sepolia.celo-testnet.org',
+    chainId: 11142220,
+    contractAddress: process.env.CONTRACT_ADDRESS_CELO_SEPOLIA || '',
+  },
+
   base: {
     rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
     chainId: 8453,
     contractAddress: '0xEdc6abb2f1A25A191dAf8B648c1A3686EfFE6Dd6',
+  },
+
+  // Default chain the AI agent operates on. Targets Celo MAINNET (42220) — real
+  // money. Every agent transaction is user-signed in their own wallet and gated
+  // by maxSpendUsd; the agent never holds keys or moves funds itself.
+  // Set AGENT_DEFAULT_CHAIN_ID=11142220 to point it at Celo Sepolia for testing.
+  agent: {
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+    model: process.env.AGENT_MODEL || 'claude-opus-4-8',
+    defaultChainId: parseInt(process.env.AGENT_DEFAULT_CHAIN_ID || '42220', 10),
+    maxSpendUsd: parseFloat(process.env.AGENT_MAX_SPEND_USD || '50'),
   },
 
   nello: {
