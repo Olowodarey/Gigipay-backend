@@ -12,7 +12,7 @@ export class AgentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Send a message to the GigiPay Agent. Returns a reply plus any transactions the user should review and sign.',
+      'Send a message to the GigiPay Agent (local rule-based engine, no external LLM). Returns a reply plus any transactions/schedules to sign and any data actions for the frontend to fulfil.',
   })
   chat(@Body() dto: AgentChatDto) {
     return this.service.chat(dto);
