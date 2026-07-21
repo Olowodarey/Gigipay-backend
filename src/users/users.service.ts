@@ -44,10 +44,4 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
-
-  async linkPrivy(address: string, privyUserId: string): Promise<UserEntity> {
-    const user = await this.findOrCreate(address);
-    user.privyUserId = privyUserId;
-    return this.repo.save(user);
-  }
 }

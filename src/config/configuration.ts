@@ -9,11 +9,6 @@ export default () => ({
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 
-  privy: {
-    appId: process.env.PRIVY_APP_ID || '',
-    appSecret: process.env.PRIVY_APP_SECRET || '',
-  },
-
   celo: {
     rpcUrl: process.env.CELO_RPC_URL || 'https://rpc.ankr.com/celo',
     chainId: 42220,

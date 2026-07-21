@@ -4,7 +4,6 @@ import { AuthService } from './auth.service';
 import {
   GetNonceDto,
   VerifySignatureDto,
-  PrivyLoginDto,
   MiniPayLoginDto,
 } from './dto/auth.dto';
 
@@ -39,13 +38,5 @@ export class AuthController {
   })
   async miniPayLogin(@Body() dto: MiniPayLoginDto) {
     return this.service.miniPayLogin(dto.address);
-  }
-
-  @Post('privy')
-  @ApiOperation({
-    summary: 'Register/login via Privy (email/phone) → JWT + user profile',
-  })
-  async privyLogin(@Body() dto: PrivyLoginDto) {
-    return this.service.privyLogin(dto);
   }
 }

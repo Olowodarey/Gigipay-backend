@@ -35,12 +35,3 @@ export class MiniPayLoginDto {
   @IsString()
   address: string;
 }
-
-export class PrivyLoginDto {
-  @ApiProperty({
-    example: 'eyJhbGciOiJFUzI1NiJ9...',
-    description: 'Privy access token obtained from the frontend SDK',
-  })
-  @IsString()
-  accessToken: string;
-}
