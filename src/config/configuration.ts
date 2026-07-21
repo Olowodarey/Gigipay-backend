@@ -17,7 +17,7 @@ export default () => ({
   celo: {
     rpcUrl: process.env.CELO_RPC_URL || 'https://rpc.ankr.com/celo',
     chainId: 42220,
-    contractAddress: '0x4e83B060F788413e97ad0Dd5FC9FC8781CC95cDc', // Gigipay v2.0 (UUPS + Batch Payments)
+    contractAddress: '0x79aB973f8985755dC7E185fcd0F60888e46019a3', // Gigipay v2.0 (redeployed 2026-07-21, Safe admin)
   },
 
   // Celo Sepolia testnet — build & test the AI agent here first (mainnet is real money).
@@ -54,5 +54,12 @@ export default () => ({
 
   coingecko: {
     apiKey: process.env.COINGECKO_API_KEY || '',
+  },
+
+  // Web Push (VAPID) — notifies users when a scheduled payment run is due.
+  vapid: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || '',
+    subject: process.env.VAPID_SUBJECT || 'mailto:admin@gigipay.app',
   },
 });

@@ -12,28 +12,31 @@ import {
 import { AirtimeService } from './airtime.service';
 import { GIGIPAY_ABI } from '../blockchain/abi';
 
+type PublicClient = ReturnType<BlockchainService['getPublicClient']>;
+
 /**
- * Chain-specific listener config.
+ * Per-chain poll interval (ms).
  *
- * - poll: true  → uses eth_getLogs on a timer (works on stateless/load-balanced RPCs like mainnet.base.org)
- * - poll: false → uses eth_newFilter + eth_getFilterChanges (requires sticky/stateful RPC)
- *
- * Base public RPC is stateless, so we must poll.
- * Celo (Ankr) supports filters but has a block-range limit, so we also poll to avoid
- * the "Block range is too large" error that occurs when catching up from a stale fromBlock.
+ * We poll `eth_getLogs` on a timer instead of using `eth_newFilter` +
+ * `eth_getFilterChanges`. Public/load-balanced RPCs (e.g. mainnet.base.org) are
+ * stateless: a filter created on one node vanishes on the next request, which
+ * throws "filter not found". `getLogs` is stateless and works everywhere.
  */
-const CHAIN_POLL_CONFIG: Record<
-  number,
-  { poll: true; pollingInterval: number }
-> = {
-  [celo.id]: { poll: true, pollingInterval: 4_000 }, // Celo ~5s blocks
-  [base.id]: { poll: true, pollingInterval: 2_000 }, // Base ~2s blocks
+const POLL_INTERVAL_MS: Record<number, number> = {
+  [celo.id]: 4_000, // Celo ~5s blocks
+  [base.id]: 2_000, // Base ~2s blocks
 };
+
+// Cap the block range per poll so a large catch-up gap can't trip a provider's
+// getLogs range limit — remaining blocks are picked up on the next tick.
+const MAX_BLOCK_RANGE = 500n;
 
 @Injectable()
 export class BillPaymentListener implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BillPaymentListener.name);
-  private unwatchers: Array<() => void> = [];
+  private timers: NodeJS.Timeout[] = [];
+  private lastBlock = new Map<number, bigint>();
+  private polling = new Set<number>();
 
   constructor(
     private readonly blockchain: BlockchainService,
@@ -46,8 +49,8 @@ export class BillPaymentListener implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    this.unwatchers.forEach((fn) => fn());
-    this.unwatchers = [];
+    this.timers.forEach((t) => clearInterval(t));
+    this.timers = [];
     this.logger.log('Bill payment listeners stopped');
   }
 
@@ -56,90 +59,91 @@ export class BillPaymentListener implements OnModuleInit, OnModuleDestroy {
     if (!address) return;
 
     const client = this.blockchain.getPublicClient(chainId);
-    const config = CHAIN_POLL_CONFIG[chainId] ?? {
-      poll: true,
-      pollingInterval: 4_000,
-    };
+    const interval = POLL_INTERVAL_MS[chainId] ?? 4_000;
 
-    // Start watching from the current block to avoid replaying old events
-    // and to prevent "block range too large" errors on catch-up.
-    let fromBlock: bigint;
+    // Start from the current block so we don't replay historical events.
     try {
-      fromBlock = await client.getBlockNumber();
-      this.logger.log(
-        `Chain ${chainId}: starting listener from block ${fromBlock}`,
-      );
+      this.lastBlock.set(chainId, await client.getBlockNumber());
     } catch {
       this.logger.warn(
-        `Chain ${chainId}: could not fetch current block, starting from "latest"`,
+        `Chain ${chainId}: could not fetch current block; will initialise on first poll`,
       );
-      fromBlock = undefined as unknown as bigint;
     }
 
-    const unwatch = client.watchContractEvent({
-      address,
-      abi: GIGIPAY_ABI,
-      eventName: 'BillPaymentInitiated',
-      fromBlock,
-      poll: config.poll,
-      pollingInterval: config.pollingInterval,
-      onLogs: (logs) => {
-        for (const log of logs) {
-          const args = log.args as {
-            orderId?: bigint;
-            buyer?: `0x${string}`;
-            serviceType?: string;
-            serviceId?: string;
-            recipientHash?: `0x${string}`;
-          };
-          void this.handleEvent(chainId, args, log.transactionHash ?? null);
-        }
-      },
-      onError: (err) => {
-        this.logger.error(`Listener error on chain ${chainId}: ${err.message}`);
-      },
-    });
+    const timer = setInterval(() => {
+      void this.poll(chainId, client, address);
+    }, interval);
+    this.timers.push(timer);
 
-    this.unwatchers.push(unwatch);
     this.logger.log(
-      `Listening for BillPaymentInitiated on chain ${chainId} at ${address} (poll=${config.poll})`,
+      `Polling BillPaymentInitiated + BatchBillPaymentCompleted on chain ${chainId} ` +
+        `at ${address} every ${interval}ms (getLogs)`,
     );
+  }
 
-    // Also listen for batch events for logging/monitoring
-    const unwatchBatch = client.watchContractEvent({
-      address,
-      abi: GIGIPAY_ABI,
-      eventName: 'BatchBillPaymentCompleted',
-      fromBlock,
-      poll: config.poll,
-      pollingInterval: config.pollingInterval,
-      onLogs: (logs) => {
-        for (const log of logs) {
-          const args = log.args as {
-            buyer?: `0x${string}`;
-            token?: `0x${string}`;
-            totalAmount?: bigint;
-            serviceType?: string;
-            recipientCount?: bigint;
-          };
-          this.logger.log(
-            `BatchBillPaymentCompleted: chain=${chainId} buyer=${args.buyer} ` +
-              `serviceType=${args.serviceType} recipients=${args.recipientCount} ` +
-              `totalAmount=${args.totalAmount} tx=${log.transactionHash}`,
-          );
-        }
-      },
-      onError: (err) => {
-        this.logger.error(
-          `Batch listener error on chain ${chainId}: ${err.message}`,
+  private async poll(chainId: number, client: PublicClient, address: string) {
+    // Skip if the previous tick for this chain is still running.
+    if (this.polling.has(chainId)) return;
+    this.polling.add(chainId);
+    try {
+      const latest = await client.getBlockNumber();
+      const from = this.lastBlock.get(chainId);
+      if (from === undefined) {
+        this.lastBlock.set(chainId, latest);
+        return;
+      }
+      if (latest <= from) return;
+
+      const start = from + 1n;
+      const to = latest - start > MAX_BLOCK_RANGE ? start + MAX_BLOCK_RANGE : latest;
+
+      const initiated = await client.getContractEvents({
+        address: address as `0x${string}`,
+        abi: GIGIPAY_ABI,
+        eventName: 'BillPaymentInitiated',
+        fromBlock: start,
+        toBlock: to,
+      });
+      for (const log of initiated) {
+        const args = log.args as {
+          orderId?: bigint;
+          serviceType?: string;
+          serviceId?: string;
+        };
+        void this.handleEvent(chainId, args, log.transactionHash ?? null);
+      }
+
+      const batch = await client.getContractEvents({
+        address: address as `0x${string}`,
+        abi: GIGIPAY_ABI,
+        eventName: 'BatchBillPaymentCompleted',
+        fromBlock: start,
+        toBlock: to,
+      });
+      for (const log of batch) {
+        const args = log.args as {
+          buyer?: `0x${string}`;
+          serviceType?: string;
+          recipientCount?: bigint;
+          totalAmount?: bigint;
+        };
+        this.logger.log(
+          `BatchBillPaymentCompleted: chain=${chainId} buyer=${args.buyer} ` +
+            `serviceType=${args.serviceType} recipients=${args.recipientCount} ` +
+            `totalAmount=${args.totalAmount} tx=${log.transactionHash}`,
         );
-      },
-    });
+      }
 
-    this.unwatchers.push(unwatchBatch);
-    this.logger.log(
-      `Listening for BatchBillPaymentCompleted on chain ${chainId} at ${address} (poll=${config.poll})`,
-    );
+      this.lastBlock.set(chainId, to);
+    } catch (err) {
+      this.logger.error(
+        `Poll error on chain ${chainId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    } finally {
+      this.polling.delete(chainId);
+    }
   }
 
   private async handleEvent(
@@ -152,7 +156,7 @@ export class BillPaymentListener implements OnModuleInit, OnModuleDestroy {
     txHash: string | null,
   ) {
     const { orderId, serviceType } = args;
-    if (!orderId || !serviceType || !txHash) return;
+    if (orderId === undefined || !serviceType || !txHash) return;
 
     this.logger.log(
       `BillPaymentInitiated: chain=${chainId} orderId=${orderId} serviceType=${serviceType} tx=${txHash}`,

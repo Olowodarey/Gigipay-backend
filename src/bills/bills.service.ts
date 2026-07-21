@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { formatUnits, type Address } from 'viem';
 import { celo, base } from 'viem/chains';
 import { BlockchainService } from '../blockchain/blockchain.service';
@@ -50,6 +50,7 @@ export interface TokenBalance {
   raw: string; // wei / smallest unit as string
   formatted: string; // human-readable e.g. "12.345678"
   decimals: number;
+  unavailable?: boolean; // true if this RPC read failed (shown as 0)
 }
 
 export interface ChainBalances {
@@ -57,10 +58,13 @@ export interface ChainBalances {
   chainName: string;
   contractAddress: string;
   balances: TokenBalance[];
+  error?: boolean; // true if this chain's reads couldn't be completed
 }
 
 @Injectable()
 export class BillsService {
+  private readonly logger = new Logger(BillsService.name);
+
   constructor(private readonly blockchain: BlockchainService) {}
 
   async getBalances(): Promise<ChainBalances[]> {
@@ -68,71 +72,63 @@ export class BillsService {
       { id: celo.id, name: 'Celo' },
       { id: base.id, name: 'Base' },
     ];
-
+    // Each chain is independent — a flaky RPC on one must not fail the others.
     return Promise.all(
-      chains.map(async (chain) => {
-        const tokens = TRACKED_TOKENS[chain.id] ?? [];
-        const contractAddress = this.blockchain.getContractAddress(chain.id);
-
-        const balances = await Promise.all(
-          tokens.map(async (token): Promise<TokenBalance> => {
-            const isNative =
-              token.address === '0x0000000000000000000000000000000000000000';
-
-            const raw = isNative
-              ? await this.blockchain.getContractNativeBalance(chain.id)
-              : await this.blockchain.getContractTokenBalance(
-                  chain.id,
-                  token.address,
-                );
-
-            return {
-              symbol: token.symbol,
-              address: token.address,
-              raw: raw.toString(),
-              formatted: formatUnits(raw, token.decimals),
-              decimals: token.decimals,
-            };
-          }),
-        );
-
-        return {
-          chainId: chain.id,
-          chainName: chain.name,
-          contractAddress,
-          balances,
-        };
-      }),
+      chains.map((chain) => this.getChainBalances(chain.id, chain.name)),
     );
   }
 
   async getBalancesByChain(chainId: number): Promise<ChainBalances> {
-    const chainName = chainId === celo.id ? 'Celo' : 'Base';
+    return this.getChainBalances(chainId, chainId === celo.id ? 'Celo' : 'Base');
+  }
+
+  /** Read all tracked-token balances for one chain, tolerating RPC failures. */
+  private async getChainBalances(
+    chainId: number,
+    chainName: string,
+  ): Promise<ChainBalances> {
     const tokens = TRACKED_TOKENS[chainId] ?? [];
     const contractAddress = this.blockchain.getContractAddress(chainId);
 
-    const balances = await Promise.all(
-      tokens.map(async (token): Promise<TokenBalance> => {
-        const isNative =
-          token.address === '0x0000000000000000000000000000000000000000';
-
-        const raw = isNative
-          ? await this.blockchain.getContractNativeBalance(chainId)
-          : await this.blockchain.getContractTokenBalance(
-              chainId,
-              token.address,
-            );
-
-        return {
-          symbol: token.symbol,
-          address: token.address,
-          raw: raw.toString(),
-          formatted: formatUnits(raw, token.decimals),
-          decimals: token.decimals,
-        };
-      }),
+    const results = await Promise.all(
+      tokens.map((token) => this.readTokenBalance(chainId, token)),
     );
+    const error = results.some((b) => b.unavailable);
+    return { chainId, chainName, contractAddress, balances: results, error };
+  }
 
-    return { chainId, chainName, contractAddress, balances };
+  /** Never throws — on RPC failure returns a 0 balance flagged `unavailable`. */
+  private async readTokenBalance(
+    chainId: number,
+    token: { symbol: string; address: Address; decimals: number },
+  ): Promise<TokenBalance> {
+    const isNative =
+      token.address === '0x0000000000000000000000000000000000000000';
+    try {
+      const raw = isNative
+        ? await this.blockchain.getContractNativeBalance(chainId)
+        : await this.blockchain.getContractTokenBalance(chainId, token.address);
+      return {
+        symbol: token.symbol,
+        address: token.address,
+        raw: raw.toString(),
+        formatted: formatUnits(raw, token.decimals),
+        decimals: token.decimals,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Balance read failed chain=${chainId} token=${token.symbol}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return {
+        symbol: token.symbol,
+        address: token.address,
+        raw: '0',
+        formatted: '0',
+        decimals: token.decimals,
+        unavailable: true,
+      };
+    }
   }
 }

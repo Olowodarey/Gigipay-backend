@@ -12,47 +12,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { RatesService } from '../rates/rates.service';
 import { AgentChatDto } from './dto/agent.dto';
-
-// ─── Token registry (agent-facing) ──────────────────────────────────────────
-// MiniPay token scope: USDC / USDT / USDm (cUSD) only + native for gas-free UX.
-// Stablecoins are treated as ~$1. Add verified addresses per chain as needed.
-interface AgentToken {
-  symbol: string;
-  address: Address;
-  decimals: number;
-  isNative: boolean;
-  isStable: boolean;
-}
-
-const NATIVE: Address = '0x0000000000000000000000000000000000000000';
-
-const TOKENS: Record<number, AgentToken[]> = {
-  // Celo mainnet
-  42220: [
-    { symbol: 'CELO', address: NATIVE, decimals: 18, isNative: true, isStable: false },
-    { symbol: 'USDC', address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C', decimals: 6, isNative: false, isStable: true },
-    { symbol: 'USDT', address: '0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e', decimals: 6, isNative: false, isStable: true },
-    { symbol: 'USDm', address: '0x765DE816845861e75A25fCA122bb6898B8B1282a', decimals: 18, isNative: false, isStable: true }, // cUSD
-  ],
-  // Base mainnet
-  8453: [
-    { symbol: 'ETH', address: NATIVE, decimals: 18, isNative: true, isStable: false },
-    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, isNative: false, isStable: true },
-  ],
-  // Celo Sepolia (testnet) — native only until stablecoin addresses are added
-  11142220: [
-    { symbol: 'CELO', address: NATIVE, decimals: 18, isNative: true, isStable: false },
-  ],
-};
-
-// Nigerian mobile network → ClubKonnect/Nellobytesystems code
-const NETWORK_CODES: Record<string, string> = {
-  MTN: '01',
-  GLO: '02',
-  '9MOBILE': '03',
-  ETISALAT: '03',
-  AIRTEL: '04',
-};
+import {
+  NETWORK_CODES,
+  resolveToken,
+  type PaymentToken,
+} from '../blockchain/payment-tokens';
 
 /** A transaction the agent has prepared for the user to sign in their wallet. */
 export interface PreparedTx {
@@ -78,9 +42,31 @@ export interface PreparedTx {
   };
 }
 
+/** A recurring schedule the agent has prepared for the user to confirm & save. */
+export interface PreparedSchedule {
+  id: string;
+  summary: string;
+  /** Body the frontend POSTs to the JWT-guarded `POST /api/schedules` endpoint. */
+  payload: {
+    kind: 'airtime' | 'batch-transfer';
+    chainId: number;
+    tokenSymbol: string;
+    cadence: 'daily' | 'weekly' | 'monthly';
+    label?: string;
+    spendCapUsd?: number;
+    startAt?: string;
+    endAt?: string;
+    phoneNumber?: string;
+    amountNgn?: number;
+    network?: string;
+    recipients?: { address: string; amount: string }[];
+  };
+}
+
 export interface AgentChatResult {
   reply: string;
   transactions: PreparedTx[];
+  schedules: PreparedSchedule[];
 }
 
 @Injectable()
@@ -161,6 +147,49 @@ export class AgentService {
           required: ['tokenSymbol', 'recipients'],
         },
       },
+      {
+        name: 'create_schedule',
+        description:
+          'Prepare (do NOT save) a RECURRING payment schedule for the user to confirm. Use this when the user wants something to repeat, e.g. "every Friday send ₦1000 airtime to Mum" or "pay my team 20 USDC each every month". The user confirms and saves it in the app; each occurrence is signed by them when it is due. Confirm all details first.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            kind: {
+              type: 'string',
+              enum: ['airtime', 'batch-transfer'],
+              description: 'airtime = recurring top-up; batch-transfer = recurring payroll',
+            },
+            cadence: {
+              type: 'string',
+              enum: ['daily', 'weekly', 'monthly'],
+              description: 'How often the payment repeats',
+            },
+            tokenSymbol: { type: 'string', description: 'Token to pay with, e.g. USDC, USDT, USDm, CELO' },
+            label: { type: 'string', description: 'Optional friendly name, e.g. "Airtime for Mum"' },
+            spendCapUsd: { type: 'number', description: 'Optional per-run spend cap in USD' },
+            startAt: { type: 'string', description: 'Optional ISO datetime for the first run (defaults to now)' },
+            endAt: { type: 'string', description: 'Optional ISO datetime to stop repeating' },
+            // airtime fields
+            phoneNumber: { type: 'string', description: 'For airtime: Nigerian number, 11 digits' },
+            amountNgn: { type: 'number', description: 'For airtime: value in Naira (50–200000)' },
+            network: { type: 'string', enum: ['MTN', 'GLO', 'AIRTEL', '9MOBILE'], description: 'For airtime: mobile network' },
+            // batch fields
+            recipients: {
+              type: 'array',
+              description: 'For batch-transfer: recipients and amounts in human token units',
+              items: {
+                type: 'object',
+                properties: {
+                  address: { type: 'string', description: '0x wallet address' },
+                  amount: { type: 'string', description: 'Amount in human token units' },
+                },
+                required: ['address', 'amount'],
+              },
+            },
+          },
+          required: ['kind', 'cadence', 'tokenSymbol'],
+        },
+      },
     ];
   }
 
@@ -175,11 +204,12 @@ export class AgentService {
             : `chain ${chainId}`;
     return [
       'You are the GigiPay Agent — a friendly payments assistant for Gigipay, a stablecoin payments app.',
-      `You help people on ${chainName} do three things: top up Nigerian airtime, send batch/payroll transfers, and get price quotes.`,
+      `You help people on ${chainName}: top up Nigerian airtime, send batch/payroll transfers, get price quotes, and set up recurring (scheduled) payments.`,
       '',
       'HARD RULES:',
       '- You never hold keys and never move funds. You PREPARE transactions; the user signs them in their own wallet.',
-      '- Always confirm the details (recipient, amount, network, token) with the user in plain language BEFORE calling a prepare_* tool.',
+      '- For anything RECURRING ("every week", "every month", "each Friday"), use create_schedule instead of a one-off prepare_* tool. The user confirms the schedule and signs each occurrence when it is due.',
+      '- Always confirm the details (recipient, amount, network, token, and how often) with the user in plain language BEFORE calling a prepare_* or create_schedule tool.',
       '- Use get_quote to show the cost before preparing a payment.',
       `- This involves real money. Keep any single prepared payment under about $${this.maxSpendUsd}. If the user wants more, ask them to confirm explicitly and split it up.`,
       '- Ask for any missing detail rather than guessing (phone number, amount, network, token, recipient addresses).',
@@ -206,6 +236,7 @@ export class AgentService {
     }));
 
     const prepared: PreparedTx[] = [];
+    const preparedSchedules: PreparedSchedule[] = [];
     const MAX_TURNS = 6;
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -223,7 +254,7 @@ export class AgentService {
           .map((b) => b.text)
           .join('\n')
           .trim();
-        return { reply, transactions: prepared };
+        return { reply, transactions: prepared, schedules: preparedSchedules };
       }
 
       // Echo the assistant turn (including tool_use blocks) back into history.
@@ -239,6 +270,7 @@ export class AgentService {
             chainId,
             dto.userAddress,
             prepared,
+            preparedSchedules,
           );
           toolResults.push({
             type: 'tool_result',
@@ -262,6 +294,7 @@ export class AgentService {
       reply:
         "I couldn't finish that in a few steps — could you restate what you'd like to do?",
       transactions: prepared,
+      schedules: preparedSchedules,
     };
   }
 
@@ -273,6 +306,7 @@ export class AgentService {
     chainId: number,
     userAddress: string | undefined,
     prepared: PreparedTx[],
+    preparedSchedules: PreparedSchedule[],
   ): Promise<unknown> {
     switch (name) {
       case 'get_quote':
@@ -281,30 +315,18 @@ export class AgentService {
         return this.prepareAirtime(chainId, input, prepared);
       case 'prepare_batch_transfer':
         return this.prepareBatch(chainId, input, prepared);
+      case 'create_schedule':
+        return this.prepareSchedule(chainId, input, preparedSchedules);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
-  }
-
-  private resolveToken(chainId: number, symbol: string): AgentToken {
-    const list = TOKENS[chainId] ?? [];
-    const token = list.find(
-      (t) => t.symbol.toLowerCase() === symbol.toLowerCase(),
-    );
-    if (!token) {
-      const available = list.map((t) => t.symbol).join(', ') || 'none';
-      throw new Error(
-        `Token "${symbol}" is not available on this chain. Available: ${available}.`,
-      );
-    }
-    return token;
   }
 
   /** Human token amount for a given NGN value, using live rates. */
   private async quoteHuman(
     chainId: number,
     amountNgn: number,
-    token: AgentToken,
+    token: PaymentToken,
   ): Promise<string> {
     if (token.isStable) {
       const rates = await this.rates.getAllRates();
@@ -320,7 +342,7 @@ export class AgentService {
   }
 
   private async getQuote(chainId: number, amountNgn: number, symbol: string) {
-    const token = this.resolveToken(chainId, symbol);
+    const token = resolveToken(chainId, symbol);
     const human = await this.quoteHuman(chainId, amountNgn, token);
     return {
       amountNgn,
@@ -338,7 +360,7 @@ export class AgentService {
     const phoneNumber = String(input.phoneNumber).trim();
     const amountNgn = Number(input.amountNgn);
     const network = String(input.network).toUpperCase();
-    const token = this.resolveToken(chainId, String(input.tokenSymbol));
+    const token = resolveToken(chainId, String(input.tokenSymbol));
 
     if (!/^0[7-9][01]\d{8}$/.test(phoneNumber))
       throw new Error('Invalid Nigerian phone number (expected 11 digits like 08012345678).');
@@ -394,7 +416,7 @@ export class AgentService {
     input: Record<string, unknown>,
     prepared: PreparedTx[],
   ): unknown {
-    const token = this.resolveToken(chainId, String(input.tokenSymbol));
+    const token = resolveToken(chainId, String(input.tokenSymbol));
     const recipientsRaw = (input.recipients as Array<{ address: string; amount: string }>) ?? [];
     if (!Array.isArray(recipientsRaw) || recipientsRaw.length === 0)
       throw new Error('Provide at least one recipient.');
@@ -441,5 +463,74 @@ export class AgentService {
     };
     prepared.push(tx);
     return { prepared: true, id: tx.id, summary: tx.summary, count: recipients.length, requiresApproval: tx.requiresApproval };
+  }
+
+  private prepareSchedule(
+    chainId: number,
+    input: Record<string, unknown>,
+    preparedSchedules: PreparedSchedule[],
+  ): unknown {
+    const kind = String(input.kind);
+    if (kind !== 'airtime' && kind !== 'batch-transfer')
+      throw new Error('kind must be "airtime" or "batch-transfer".');
+    const cadence = String(input.cadence);
+    if (!['daily', 'weekly', 'monthly'].includes(cadence))
+      throw new Error('cadence must be daily, weekly or monthly.');
+    const token = resolveToken(chainId, String(input.tokenSymbol));
+
+    const payload: PreparedSchedule['payload'] = {
+      kind,
+      chainId,
+      tokenSymbol: token.symbol,
+      cadence: cadence as 'daily' | 'weekly' | 'monthly',
+    };
+    if (input.label) payload.label = String(input.label);
+    if (input.spendCapUsd != null) payload.spendCapUsd = Number(input.spendCapUsd);
+    if (input.startAt) payload.startAt = String(input.startAt);
+    if (input.endAt) payload.endAt = String(input.endAt);
+
+    let summary: string;
+    if (kind === 'airtime') {
+      const phoneNumber = String(input.phoneNumber ?? '').trim();
+      const amountNgn = Number(input.amountNgn);
+      const network = String(input.network ?? '').toUpperCase();
+      if (!/^0[7-9][01]\d{8}$/.test(phoneNumber))
+        throw new Error('Invalid Nigerian phone number (expected 11 digits like 08012345678).');
+      if (!(amountNgn >= 50 && amountNgn <= 200000))
+        throw new Error('Airtime amount must be between ₦50 and ₦200,000.');
+      if (!NETWORK_CODES[network])
+        throw new Error('Network must be MTN, GLO, AIRTEL or 9MOBILE.');
+      payload.phoneNumber = phoneNumber;
+      payload.amountNgn = amountNgn;
+      payload.network = network;
+      summary = `${cadence}: ₦${amountNgn} ${network} airtime to ${phoneNumber}, paid in ${token.symbol}`;
+    } else {
+      const recipientsRaw =
+        (input.recipients as Array<{ address: string; amount: string }>) ?? [];
+      if (!Array.isArray(recipientsRaw) || recipientsRaw.length === 0)
+        throw new Error('Provide at least one recipient.');
+      if (recipientsRaw.length > 200)
+        throw new Error('Batch is limited to 200 recipients.');
+      for (const r of recipientsRaw) {
+        if (!/^0x[a-fA-F0-9]{40}$/.test(r.address))
+          throw new Error(`Invalid address: ${r.address}`);
+        if (!(Number(r.amount) > 0))
+          throw new Error(`Invalid amount for ${r.address}`);
+      }
+      payload.recipients = recipientsRaw.map((r) => ({
+        address: r.address,
+        amount: String(r.amount),
+      }));
+      summary = `${cadence}: pay ${token.symbol} to ${recipientsRaw.length} recipient(s)`;
+    }
+
+    const schedule: PreparedSchedule = { id: uuidv4(), summary, payload };
+    preparedSchedules.push(schedule);
+    return {
+      prepared: true,
+      id: schedule.id,
+      summary,
+      note: 'The user must confirm this schedule in the app to save it.',
+    };
   }
 }
