@@ -55,6 +55,15 @@ export default () => ({
     apiKey: process.env.COINGECKO_API_KEY || '',
   },
 
+  // PostHog — read-only, server-side, for real DAU/MAU on the /stats page. Needs
+  // a PERSONAL API key (not the public NEXT_PUBLIC_POSTHOG_KEY) with project
+  // read access. When unset, the stats page simply omits DAU/MAU.
+  posthog: {
+    apiKey: process.env.POSTHOG_API_KEY || '',
+    projectId: process.env.POSTHOG_PROJECT_ID || '',
+    host: process.env.POSTHOG_HOST || 'https://us.posthog.com',
+  },
+
   // Web Push (VAPID) — notifies users when a scheduled payment run is due.
   vapid: {
     publicKey: process.env.VAPID_PUBLIC_KEY || '',

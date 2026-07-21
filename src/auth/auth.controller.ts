@@ -1,7 +1,12 @@
 import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { GetNonceDto, VerifySignatureDto, PrivyLoginDto } from './dto/auth.dto';
+import {
+  GetNonceDto,
+  VerifySignatureDto,
+  PrivyLoginDto,
+  MiniPayLoginDto,
+} from './dto/auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -25,6 +30,15 @@ export class AuthController {
       dto.isMiniPay ?? false,
     );
     return { token, user };
+  }
+
+  @Post('minipay')
+  @ApiOperation({
+    summary:
+      'MiniPay session login (no signature — MiniPay lacks personal_sign) → JWT + user profile',
+  })
+  async miniPayLogin(@Body() dto: MiniPayLoginDto) {
+    return this.service.miniPayLogin(dto.address);
   }
 
   @Post('privy')

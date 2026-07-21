@@ -75,6 +75,28 @@ export class AuthService implements OnModuleInit {
     return { token, user };
   }
 
+  /**
+   * MiniPay session login — no signature. MiniPay does not support
+   * `personal_sign`/`eth_signTypedData`, so we cannot run the SIWE flow inside
+   * it. Instead we issue a JWT bound to the injected wallet address.
+   *
+   * Security note: this trusts the client-supplied address, so it is only
+   * acceptable because Gigipay is non-custodial — the session never moves funds;
+   * every payment is still signed on-chain by the user's own wallet. It only
+   * scopes per-user data (schedules, profile). Do NOT reuse this pattern for any
+   * flow that could spend or withdraw on the user's behalf.
+   */
+  async miniPayLogin(address: string) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address))
+      throw new UnauthorizedException('Invalid wallet address.');
+    const user = await this.users.findOrCreate(address, true);
+    const token = this.jwt.sign({
+      sub: address.toLowerCase(),
+      address: address.toLowerCase(),
+    });
+    return { token, user };
+  }
+
   async privyLogin(dto: PrivyLoginDto) {
     // Verify the Privy access token server-side
     let privyUser: Awaited<ReturnType<PrivyClient['verifyAuthToken']>>;

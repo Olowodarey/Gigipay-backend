@@ -14,6 +14,7 @@ import { BillsModule } from './bills/bills.module';
 import { AgentModule } from './agent/agent.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { UserEntity } from './users/user.entity';
 import { AirtimeOrderEntity } from './airtime/airtime-order.entity';
 import { ScheduleEntity } from './schedules/schedule.entity';
@@ -60,6 +61,7 @@ import { PushSubscriptionEntity } from './notifications/push-subscription.entity
     AgentModule,
     NotificationsModule,
     SchedulesModule,
+    MetricsModule,
   ],
 })
 export class AppModule {}
