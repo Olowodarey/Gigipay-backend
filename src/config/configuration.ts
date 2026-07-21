@@ -39,9 +39,8 @@ export default () => ({
   // money. Every agent transaction is user-signed in their own wallet and gated
   // by maxSpendUsd; the agent never holds keys or moves funds itself.
   // Set AGENT_DEFAULT_CHAIN_ID=11142220 to point it at Celo Sepolia for testing.
+  // The agent is a local rule-based engine (no external LLM) — no API key needed.
   agent: {
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-    model: process.env.AGENT_MODEL || 'claude-opus-4-8',
     defaultChainId: parseInt(process.env.AGENT_DEFAULT_CHAIN_ID || '42220', 10),
     maxSpendUsd: parseFloat(process.env.AGENT_MAX_SPEND_USD || '50'),
   },
